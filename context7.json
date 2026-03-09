@@ -1,0 +1,23 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Formalingo",
+  "description": "AI-powered form builder and document-signing platform — REST API, TypeScript/Python/.NET/Go SDKs, webhooks",
+  "folders": [
+    ".",
+    "forms",
+    "documents",
+    "sdks",
+    "webhooks",
+    "api-reference"
+  ],
+  "excludeFolders": [],
+  "excludeFiles": [
+    "meta.json"
+  ],
+  "rules": [
+    "Formalingo uses API key authentication with Bearer scheme",
+    "All endpoints return { success, data, error, meta } envelope",
+    "SDKs available for TypeScript, Python, .NET, and Go",
+    "Forms and documents are workspace-scoped resources"
+  ]
+}

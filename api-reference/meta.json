@@ -1,0 +1,17 @@
+{
+  "title": "API Reference",
+  "pages": [
+    "index",
+    "forms",
+    "form-sections",
+    "form-questions",
+    "recipients",
+    "form-branding",
+    "form-settings",
+    "form-rules",
+    "documents",
+    "document-fields",
+    "signer-roles",
+    "submissions"
+  ]
+}

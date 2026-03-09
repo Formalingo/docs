@@ -1,0 +1,5166 @@
+# Formalingo API Documentation
+
+Formalingo is an AI-powered form builder and document-signing platform.
+This file contains the complete API documentation for LLM consumption.
+
+---
+
+# Getting Started
+
+The Formalingo REST API lets you create and manage forms, digital signature documents, recipients, and submissions — all programmatically from your own application.
+
+## Base URL
+
+All API requests are made to:
+
+```
+https://app.formalingo.com/api/v1
+```
+
+## Quick Start
+
+**1. Generate an API key** from [Settings → API Keys](/settings/api-keys) in your dashboard.
+
+**2. Make your first request:**
+
+**curl**
+```bash
+curl https://app.formalingo.com/api/v1/forms \\
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+const forms = await client.forms.get()
+```
+
+**Python SDK**
+```python
+# See SDK setup guide for full client initialization
+forms = await client.api.v1.forms.get()
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+var forms = await client.Api.V1.Forms.GetAsync();
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+forms, err := client.Api().V1().Forms().Get(context.Background(), nil)
+```
+
+**3. Create a form:**
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "title": "My First Form" }'
+```
+
+**TypeScript SDK**
+```typescript
+const form = await client.forms.post({
+  title: "My First Form",
+})
+```
+
+**Python SDK**
+```python
+body = CreateFormBody()
+body.title = "My First Form"
+form = await client.api.v1.forms.post(body)
+```
+
+**.NET SDK**
+```csharp
+var form = await client.Api.V1.Forms.PostAsync(new() {
+    Title = "My First Form",
+});
+```
+
+**Go SDK**
+```go
+body := &models.CreateFormBody{
+    Title: to.Ptr("My First Form"),
+}
+form, err := client.Api().V1().Forms().Post(context.Background(), body, nil)
+```
+
+## What you can do
+
+| Resource | Description |
+|---|---|
+| [Forms](/docs/forms) | Create forms with sections, questions, branding, and logic |
+| [Recipients](/docs/forms/recipients) | Add recipients with optional pre-filled answers |
+| [Documents](/docs/documents) | Upload PDFs/DOCX and place signature fields |
+| [Submissions](/docs/documents/submissions) | Create signing submissions with pre-filled data |
+| [Webhooks](/docs/webhooks) | Receive real-time events when forms are submitted or documents are signed |
+
+## Response format
+
+All endpoints return a consistent JSON envelope:
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "meta": { "total": 42, "page": 1, "limit": 20 }
+}
+```
+
+Errors follow the same envelope with `success: false`:
+
+```json
+{
+  "success": false,
+  "error": "Form not found",
+  "hint": "Check that the ID is correct and belongs to your workspace."
+}
+```
+
+See [Error Reference](/docs/errors) for all error codes.
+
+
+---
+
+# Authentication
+
+## API Keys
+
+The Formalingo API uses API keys for authentication. Every request must include your key in the `Authorization` header using the `Bearer` scheme.
+
+```
+Authorization: Bearer af_live_YOUR_KEY
+```
+
+API keys are **workspace-scoped** — they can only access resources belonging to the workspace where the key was created.
+
+## Creating an API Key
+
+1. Go to **Settings → API Keys** in your dashboard
+2. Click **Create API Key**
+3. Give it a name and select the required scopes
+4. Copy the key — **it is only shown once**
+
+## Scopes
+
+Each API key has a set of granted scopes. Attempting an action without the required scope returns a `403 Forbidden` response.
+
+| Scope | Description |
+|---|---|
+| `read:forms` | List and get forms, sections, questions |
+| `write:forms` | Create and update forms, sections, questions, branding, settings |
+| `delete:forms` | Soft-delete or permanently delete forms |
+| `read:recipients` | List recipients |
+| `write:recipients` | Create and update recipients (including prefill) |
+| `delete:recipients` | Delete recipients |
+| `read:documents` | List and get documents, fields, signer roles |
+| `write:documents` | Create and update documents, fields, signer roles, submissions |
+| `delete:documents` | Soft-delete or permanently delete documents |
+| `read:submissions` | List submissions and signers |
+| `write:submissions` | Create submissions with signers and prefill; update/delete signers |
+| `webhooks` | Manage webhook subscriptions |
+
+## Security Best Practices
+
+- **Never expose API keys client-side** (browser, mobile app). Use them server-side only.
+- **Use minimal scopes** — only grant the scopes your integration needs.
+- **Set expiry dates** on keys used for automations.
+- **Rotate keys regularly** and revoke any that may have been compromised.
+
+## Feature Restrictions
+
+Some dashboard features are not available via API key:
+
+- AI form/document generation
+- Workspace and team management
+- Integration (webhook profile) management
+
+These require a logged-in session.
+
+
+---
+
+# Rate Limits
+
+## How it works
+
+Rate limits are enforced per API key using a fixed-window counter. Each minute window resets independently.
+
+## Response headers
+
+Every API response includes these headers:
+
+| Header | Description |
+|---|---|
+| `X-RateLimit-Limit` | Maximum requests allowed in the window |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+
+## 429 Response
+
+When the limit is exceeded:
+
+```json
+{
+  "success": false,
+  "error": "Too Many Requests",
+  "hint": "Rate limit of 100 requests per minute exceeded. Retry after 2026-02-25T12:00:00.000Z."
+}
+```
+
+The `Retry-After` header contains the number of seconds until you can retry.
+
+## Tips
+
+- Batch operations where possible (e.g. `POST /fields/bulk` instead of many individual calls)
+- Implement exponential backoff when you receive a 429
+- Monitor `X-RateLimit-Remaining` and slow down proactively
+
+
+---
+
+# Errors
+
+All error responses follow the same format:
+
+```json
+{
+  "success": false,
+  "error": "Human-readable error message",
+  "hint": "Optional guidance on how to fix the issue"
+}
+```
+
+## HTTP Status Codes
+
+| Code | Meaning |
+|---|---|
+| `200` | Success |
+| `201` | Created — resource was successfully created |
+| `400` | Bad Request — validation failed or invalid input |
+| `401` | Unauthorized — missing or invalid API key |
+| `403` | Forbidden — API key lacks the required scope |
+| `404` | Not Found — resource doesn't exist or doesn't belong to your workspace |
+| `429` | Too Many Requests — rate limit exceeded |
+| `500` | Internal Server Error — something went wrong on our end |
+
+## Common Errors
+
+### `401 Unauthorized`
+
+```json
+{ "success": false, "error": "Invalid API key" }
+```
+
+Check that your key starts with `af_live_` and hasn't been revoked.
+
+### `403 Forbidden — missing scope`
+
+```json
+{
+  "success": false,
+  "error": "Forbidden",
+  "hint": "This action requires the 'write:forms' scope. Add it to your API key."
+}
+```
+
+Go to Settings → API Keys and add the required scope to your key.
+
+### `400 Validation Error`
+
+```json
+{ "success": false, "error": "String must contain at least 1 character(s)" }
+```
+
+Check the request body against the API schema.
+
+### `404 Not Found`
+
+```json
+{ "success": false, "error": "Form not found" }
+```
+
+The resource either doesn't exist or doesn't belong to your workspace.
+
+
+---
+
+# Pagination
+
+List endpoints support offset-based pagination using `page` and `limit` query parameters.
+
+## Parameters
+
+**Query Parameters**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+
+## Response
+
+Paginated responses include a `meta` object:
+
+```json
+{
+  "success": true,
+  "data": [...],
+  "meta": {
+    "total": 143,
+    "page": 2,
+    "limit": 20
+  }
+}
+```
+
+## Example
+
+```bash
+# Get the third page of forms, 10 per page
+curl "https://app.formalingo.com/api/v1/forms?page=3&limit=10" \
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+
+---
+
+# SDKs
+
+Formalingo provides official SDKs for **TypeScript**, **Python**, **.NET**, and **Go**, generated from the OpenAPI spec using [Microsoft Kiota](https://learn.microsoft.com/en-us/openapi/kiota/).
+
+The SDKs provide type-safe request builders, automatic serialization, and built-in authentication — so you can skip the boilerplate of raw HTTP calls.
+
+## Available SDKs
+
+| Language | Package | Install |
+|---|---|---|
+| TypeScript / Node.js | [`@formalingo/sdk`](https://www.npmjs.com/package/@formalingo/sdk) | `npm install @formalingo/sdk` |
+| Python | [`formalingo-sdk`](https://github.com/Formalingo/sdk-python) | `pip install git+https://github.com/Formalingo/sdk-python.git` |
+| .NET | [`Formalingo.Sdk`](https://www.nuget.org/packages/Formalingo.Sdk) | `dotnet add package Formalingo.Sdk` |
+| Go | [`sdk-go`](https://github.com/Formalingo/sdk-go) | `go get github.com/Formalingo/sdk-go` |
+
+## Quick comparison
+
+### curl
+
+```bash
+curl https://app.formalingo.com/api/v1/forms \
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+### TypeScript SDK
+
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+const forms = await client.forms.get()
+```
+
+### Python SDK
+
+```python
+from formalingo import create_client
+
+client = create_client("af_live_YOUR_KEY")
+forms = await client.api.v1.forms.get()
+```
+
+### .NET SDK
+
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+var forms = await client.Api.V1.Forms.GetAsync();
+```
+
+### Go SDK
+
+```go
+import formalingo "github.com/Formalingo/sdk-go"
+
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+forms, err := client.Api().V1().Forms().Get(context.Background(), nil)
+```
+
+## Next steps
+
+- [TypeScript SDK guide](/docs/sdks/typescript) — installation, setup, and examples
+- [Python SDK guide](/docs/sdks/python) — installation, setup, and examples
+- [.NET SDK guide](/docs/sdks/dotnet) — installation, setup, and examples
+- [Go SDK guide](/docs/sdks/go) — installation, setup, and examples
+
+
+---
+
+# TypeScript SDK
+
+The `@formalingo/sdk` package provides a type-safe client for the Formalingo API, generated with [Microsoft Kiota](https://learn.microsoft.com/en-us/openapi/kiota/).
+
+## Installation
+
+```bash
+npm install @formalingo/sdk @microsoft/kiota-abstractions
+```
+
+Or with yarn:
+
+```bash
+yarn add @formalingo/sdk @microsoft/kiota-abstractions
+```
+
+## Setup
+
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+```
+
+To use a custom base URL (e.g. for local development):
+
+```typescript
+const client = createClient("af_live_YOUR_KEY", "http://localhost:3000")
+```
+
+## Forms
+
+### List forms
+
+```typescript
+const forms = await client.forms.get()
+```
+
+### Create a form
+
+```typescript
+const form = await client.forms.post({
+  title: "Customer Satisfaction Survey",
+  description: "Help us improve our service.",
+})
+```
+
+### Get a form
+
+```typescript
+const form = await client.forms.byFormId("FORM_ID").get()
+```
+
+### Update a form
+
+```typescript
+const form = await client.forms.byFormId("FORM_ID").put({
+  status: "published",
+})
+```
+
+### Delete a form
+
+```typescript
+await client.forms.byFormId("FORM_ID").delete()
+```
+
+## Sections
+
+```typescript
+// List sections
+const sections = await client.forms.byFormId("FORM_ID").sections.get()
+
+// Create a section
+const section = await client.forms.byFormId("FORM_ID").sections.post({
+  title: "Personal Information",
+})
+```
+
+## Questions
+
+```typescript
+// Create a question
+const question = await client.forms.byFormId("FORM_ID").questions.post({
+  questionText: "What is your full name?",
+  type: "short_text",
+  isRequired: true,
+})
+
+// Create a multiple choice question
+const mcq = await client.forms.byFormId("FORM_ID").questions.post({
+  questionText: "How did you hear about us?",
+  type: "mcq",
+  options: {
+    choices: ["Social media", "Friend", "Search engine", "Other"],
+  },
+})
+```
+
+## Recipients
+
+```typescript
+// Create a recipient with pre-fill
+const recipient = await client.forms.byFormId("FORM_ID").recipients.post({
+  label: "John Doe",
+  email: "john@acme.com",
+  prefill: {
+    "question-uuid-1": "John Doe",
+    "question-uuid-2": "Acme Corp",
+  },
+})
+
+console.log(recipient.link)
+// → https://www.formalingo.com/f/TOKEN
+```
+
+## Branding
+
+```typescript
+await client.forms.byFormId("FORM_ID").branding.put({
+  primaryColor: "#6366F1",
+  welcomeHeading: "Welcome!",
+  thankYouHeading: "Thank you!",
+  thankYouMessage: "We appreciate your feedback.",
+})
+```
+
+## Documents
+
+```typescript
+// List documents
+const docs = await client.documents.get()
+
+// Create a submission with signers
+const submission = await client.documents
+  .byDocumentId("DOC_ID")
+  .submissions.post({
+    signers: [
+      {
+        role: "signer_1",
+        name: "John Doe",
+        email: "john@acme.com",
+        prefill: { "field-uuid-1": "John Doe" },
+        prefillReadonly: true,
+      },
+    ],
+  })
+
+console.log(submission.signers[0].link)
+// → https://www.formalingo.com/d/TOKEN
+```
+
+## Error Handling
+
+```typescript
+try {
+  const form = await client.forms.byFormId("non-existent").get()
+} catch (error) {
+  // Kiota throws typed errors with status code and message
+  console.error("API error:", error)
+}
+```
+
+
+---
+
+# Python SDK
+
+The `formalingo-sdk` package provides a type-safe client for the Formalingo API, generated with [Microsoft Kiota](https://learn.microsoft.com/en-us/openapi/kiota/).
+
+## Installation
+
+```bash
+pip install git+https://github.com/Formalingo/sdk-python.git
+```
+
+Or with uv:
+
+```bash
+uv pip install git+https://github.com/Formalingo/sdk-python.git
+```
+
+## Setup
+
+```python
+from formalingo import create_client
+
+client = create_client("af_live_YOUR_KEY")
+```
+
+The `create_client` helper wires up authentication and the HTTP adapter automatically. You can optionally pass a custom base URL:
+
+```python
+client = create_client("af_live_YOUR_KEY", base_url="https://staging.formalingo.com")
+```
+
+> **Note:** The Kiota-generated client includes the full API path: `client.api.v1.forms`, `client.api.v1.documents`, etc.
+
+## Forms
+
+### List forms
+
+```python
+forms = await client.api.v1.forms.get()
+```
+
+### Create a form
+
+```python
+from formalingo.models.create_form_body import CreateFormBody
+
+body = CreateFormBody()
+body.title = "Customer Satisfaction Survey"
+body.description = "Help us improve our service."
+
+form = await client.api.v1.forms.post(body)
+```
+
+### Get a form
+
+```python
+form = await client.api.v1.forms.by_form_id("FORM_ID").get()
+```
+
+### Update a form
+
+```python
+from formalingo.models.update_form_body import UpdateFormBody
+
+body = UpdateFormBody()
+body.status = "published"
+
+form = await client.api.v1.forms.by_form_id("FORM_ID").put(body)
+```
+
+### Delete a form
+
+```python
+await client.api.v1.forms.by_form_id("FORM_ID").delete()
+```
+
+## Sections
+
+```python
+# List sections
+sections = await client.api.v1.forms.by_form_id("FORM_ID").sections.get()
+
+# Create a section
+from formalingo.models.create_section_body import CreateSectionBody
+
+body = CreateSectionBody()
+body.title = "Personal Information"
+
+section = await client.api.v1.forms.by_form_id("FORM_ID").sections.post(body)
+```
+
+## Questions
+
+```python
+from formalingo.models.create_question_body import CreateQuestionBody
+
+# Create a text question
+body = CreateQuestionBody()
+body.question_text = "What is your full name?"
+body.type = "short_text"
+body.is_required = True
+
+question = await client.api.v1.forms.by_form_id("FORM_ID").questions.post(body)
+```
+
+## Recipients
+
+```python
+from formalingo.models.create_recipient_body import CreateRecipientBody
+
+body = CreateRecipientBody()
+body.label = "John Doe"
+body.email = "john@acme.com"
+body.prefill = {
+    "question-uuid-1": "John Doe",
+    "question-uuid-2": "Acme Corp",
+}
+
+recipient = await client.api.v1.forms.by_form_id("FORM_ID").recipients.post(body)
+print(recipient.link)
+# → https://www.formalingo.com/f/TOKEN
+```
+
+## Branding
+
+```python
+from formalingo.models.branding_update_request import BrandingUpdateRequest
+
+body = BrandingUpdateRequest()
+body.primary_color = "#6366F1"
+body.welcome_heading = "Welcome!"
+body.thank_you_heading = "Thank you!"
+
+await client.api.v1.forms.by_form_id("FORM_ID").branding.put(body)
+```
+
+## Documents
+
+```python
+# List documents
+docs = await client.api.v1.documents.get()
+
+# Create a submission
+from formalingo.models.create_submission_body import CreateSubmissionBody
+from formalingo.models.signer_input import SignerInput
+
+signer = SignerInput()
+signer.role = "signer_1"
+signer.name = "John Doe"
+signer.email = "john@acme.com"
+signer.prefill = {"field-uuid-1": "John Doe"}
+signer.prefill_readonly = True
+
+body = CreateSubmissionBody()
+body.signers = [signer]
+
+submission = await client.api.v1.documents.by_document_id("DOC_ID").submissions.post(body)
+print(submission.signers[0].link)
+# → https://www.formalingo.com/d/TOKEN
+```
+
+## Error Handling
+
+```python
+try:
+    form = await client.api.v1.forms.by_form_id("non-existent").get()
+except Exception as error:
+    print(f"API error: {error}")
+```
+
+
+---
+
+# .NET SDK
+
+The `Formalingo.Sdk` package provides a type-safe client for the Formalingo API, generated with [Microsoft Kiota](https://learn.microsoft.com/en-us/openapi/kiota/).
+
+## Installation
+
+```bash
+dotnet add package Formalingo.Sdk
+```
+
+## Setup
+
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+```
+
+To use a custom base URL (e.g. for local development):
+
+```csharp
+var client = FormalingoClientFactory.CreateClient(
+    "af_live_YOUR_KEY",
+    "http://localhost:3000"
+);
+```
+
+## Forms
+
+### List forms
+
+```csharp
+var forms = await client.Api.V1.Forms.GetAsync();
+```
+
+### Create a form
+
+```csharp
+var form = await client.Api.V1.Forms.PostAsync(new() {
+    Title = "Customer Satisfaction Survey",
+    Description = "Help us improve our service.",
+});
+```
+
+### Get a form
+
+```csharp
+var form = await client.Api.V1.Forms["FORM_ID"].GetAsync();
+```
+
+### Update a form
+
+```csharp
+var form = await client.Api.V1.Forms["FORM_ID"].PutAsync(new() {
+    Status = "published",
+});
+```
+
+### Delete a form
+
+```csharp
+await client.Api.V1.Forms["FORM_ID"].DeleteAsync();
+```
+
+## Sections
+
+```csharp
+// List sections
+var sections = await client.Api.V1.Forms["FORM_ID"].Sections.GetAsync();
+
+// Create a section
+var section = await client.Api.V1.Forms["FORM_ID"].Sections.PostAsync(new() {
+    Title = "Personal Information",
+});
+```
+
+## Questions
+
+```csharp
+// Create a question
+var question = await client.Api.V1.Forms["FORM_ID"].Questions.PostAsync(new() {
+    QuestionText = "What is your full name?",
+    Type = "short_text",
+    IsRequired = true,
+});
+
+// Create a multiple choice question
+var mcq = await client.Api.V1.Forms["FORM_ID"].Questions.PostAsync(new() {
+    QuestionText = "How did you hear about us?",
+    Type = "mcq",
+    Options = new() {
+        Choices = new List<string> { "Social media", "Friend", "Search engine", "Other" },
+    },
+});
+```
+
+## Recipients
+
+```csharp
+// Create a recipient with pre-fill
+var recipient = await client.Api.V1.Forms["FORM_ID"].Recipients.PostAsync(new() {
+    Label = "John Doe",
+    Email = "john@acme.com",
+    Prefill = new Dictionary<string, string> {
+        ["question-uuid-1"] = "John Doe",
+        ["question-uuid-2"] = "Acme Corp",
+    },
+});
+
+Console.WriteLine(recipient.Link);
+// → https://www.formalingo.com/f/TOKEN
+```
+
+## Branding
+
+```csharp
+await client.Api.V1.Forms["FORM_ID"].Branding.PutAsync(new() {
+    PrimaryColor = "#6366F1",
+    WelcomeHeading = "Welcome!",
+    ThankYouHeading = "Thank you!",
+    ThankYouMessage = "We appreciate your feedback.",
+});
+```
+
+## Documents
+
+```csharp
+// List documents
+var docs = await client.Api.V1.Documents.GetAsync();
+
+// Create a submission with signers
+var submission = await client.Api.V1.Documents["DOC_ID"]
+    .Submissions.PostAsync(new() {
+        Signers = new List<SignerInput> {
+            new() {
+                Role = "signer_1",
+                Name = "John Doe",
+                Email = "john@acme.com",
+                Prefill = new Dictionary<string, string> {
+                    ["field-uuid-1"] = "John Doe",
+                },
+                PrefillReadonly = true,
+            },
+        },
+    });
+
+Console.WriteLine(submission.Signers[0].Link);
+// → https://www.formalingo.com/d/TOKEN
+```
+
+## Error Handling
+
+```csharp
+try {
+    var form = await client.Api.V1.Forms["non-existent"].GetAsync();
+} catch (ApiException ex) {
+    Console.Error.WriteLine($"API error ({ex.ResponseStatusCode}): {ex.Message}");
+}
+```
+
+
+---
+
+# Go SDK
+
+The `sdk-go` module provides a type-safe client for the Formalingo API, generated with [Microsoft Kiota](https://learn.microsoft.com/en-us/openapi/kiota/).
+
+## Installation
+
+```bash
+go get github.com/Formalingo/sdk-go
+```
+
+## Setup
+
+```go
+import formalingo "github.com/Formalingo/sdk-go"
+
+client, err := formalingo.NewClient("af_live_YOUR_KEY")
+```
+
+The `NewClient` helper wires up authentication and the HTTP adapter automatically. You can optionally pass a custom base URL:
+
+```go
+client, err := formalingo.NewClient("af_live_YOUR_KEY", "http://localhost:3000")
+```
+
+> **Note:** The Kiota-generated client includes the full API path: `client.Api().V1().Forms()`, `client.Api().V1().Documents()`, etc.
+
+## Forms
+
+### List forms
+
+```go
+ctx := context.Background()
+forms, err := client.Api().V1().Forms().Get(ctx, nil)
+```
+
+### Create a form
+
+```go
+body := &models.CreateFormBody{
+    Title:       to.Ptr("Customer Satisfaction Survey"),
+    Description: to.Ptr("Help us improve our service."),
+}
+
+form, err := client.Api().V1().Forms().Post(ctx, body, nil)
+```
+
+### Get a form
+
+```go
+form, err := client.Api().V1().Forms().ByFormId("FORM_ID").Get(ctx, nil)
+```
+
+### Update a form
+
+```go
+body := &models.UpdateFormBody{
+    Status: to.Ptr("published"),
+}
+
+form, err := client.Api().V1().Forms().ByFormId("FORM_ID").Put(ctx, body, nil)
+```
+
+### Delete a form
+
+```go
+err := client.Api().V1().Forms().ByFormId("FORM_ID").Delete(ctx, nil)
+```
+
+## Sections
+
+```go
+// List sections
+sections, err := client.Api().V1().Forms().ByFormId("FORM_ID").Sections().Get(ctx, nil)
+
+// Create a section
+body := &models.CreateSectionBody{
+    Title: to.Ptr("Personal Information"),
+}
+section, err := client.Api().V1().Forms().ByFormId("FORM_ID").Sections().Post(ctx, body, nil)
+```
+
+## Questions
+
+```go
+// Create a question
+body := &models.CreateQuestionBody{
+    QuestionText: to.Ptr("What is your full name?"),
+    Type:         to.Ptr("short_text"),
+    IsRequired:   to.Ptr(true),
+}
+question, err := client.Api().V1().Forms().ByFormId("FORM_ID").Questions().Post(ctx, body, nil)
+```
+
+## Recipients
+
+```go
+// Create a recipient with pre-fill
+body := &models.CreateRecipientBody{
+    Label: to.Ptr("John Doe"),
+    Email: to.Ptr("john@acme.com"),
+    Prefill: map[string]string{
+        "question-uuid-1": "John Doe",
+        "question-uuid-2": "Acme Corp",
+    },
+}
+recipient, err := client.Api().V1().Forms().ByFormId("FORM_ID").Recipients().Post(ctx, body, nil)
+fmt.Println(recipient.GetLink())
+// → https://www.formalingo.com/f/TOKEN
+```
+
+## Branding
+
+```go
+body := &models.BrandingUpdateRequest{
+    PrimaryColor:    to.Ptr("#6366F1"),
+    WelcomeHeading:  to.Ptr("Welcome!"),
+    ThankYouHeading: to.Ptr("Thank you!"),
+    ThankYouMessage: to.Ptr("We appreciate your feedback."),
+}
+err := client.Api().V1().Forms().ByFormId("FORM_ID").Branding().Put(ctx, body, nil)
+```
+
+## Documents
+
+```go
+// List documents
+docs, err := client.Api().V1().Documents().Get(ctx, nil)
+
+// Create a submission with signers
+body := &models.CreateSubmissionBody{
+    Signers: []models.SignerInput{
+        {
+            Role:            to.Ptr("signer_1"),
+            Name:            to.Ptr("John Doe"),
+            Email:           to.Ptr("john@acme.com"),
+            Prefill:         map[string]string{"field-uuid-1": "John Doe"},
+            PrefillReadonly:  to.Ptr(true),
+        },
+    },
+}
+submission, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Submissions().Post(ctx, body, nil)
+fmt.Println(submission.GetSigners()[0].GetLink())
+// → https://www.formalingo.com/d/TOKEN
+```
+
+## Error Handling
+
+```go
+form, err := client.Api().V1().Forms().ByFormId("non-existent").Get(ctx, nil)
+if err != nil {
+    fmt.Fprintf(os.Stderr, "API error: %v\n", err)
+}
+```
+
+
+---
+
+# AI Skills
+
+An **AI skill** is a self-contained markdown file that teaches AI coding assistants (Claude, Cursor, Copilot, etc.) everything they need to know about the Formalingo API — endpoints, schemas, authentication, SDKs, and common workflows.
+
+Copy the skill below and paste it into your AI tool's context or project instructions. It is auto-generated from the same source of truth as our API reference, so it always stays current.
+
+
+---
+
+# Forms
+
+Forms are the core resource in Formalingo. A form contains sections, questions, branding, settings, and recipients.
+
+## Form lifecycle
+
+```
+draft → published → archived
+```
+
+- **draft** — visible only to workspace members, not accessible via public link
+- **published** — accessible to recipients via their unique link
+- **archived** — closed for new responses
+
+## Structure
+
+```
+Form
+├── Sections (optional groupings)
+│   └── Questions
+├── Questions (not in a section)
+├── Recipients (with pre-filled answers)
+├── Rules (conditional logic)
+├── Branding (colors, logo, messaging)
+└── Settings (navigation, language, visibility)
+```
+
+## Available endpoints
+
+### `GET` `/api/v1/forms`
+
+List all forms in your workspace — Scopes: `read:forms`
+
+### `POST` `/api/v1/forms`
+
+Create a new form — Scopes: `write:forms`
+
+### `GET` `/api/v1/forms/{id}`
+
+Get a form with its sections and questions — Scopes: `read:forms`
+
+### `PUT` `/api/v1/forms/{id}`
+
+Update form title, description, or status — Scopes: `write:forms`
+
+### `DELETE` `/api/v1/forms/{id}`
+
+Soft-delete or permanently delete a form — Scopes: `delete:forms`
+
+
+---
+
+# Create a Form
+
+### `POST` `/api/v1/forms`
+
+ — Scopes: `write:forms`
+
+**Request Body**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `description` | `string` | No | Optional form description (max 1000 chars) |
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "title": "Customer Satisfaction Survey",
+    "description": "Help us improve our service."
+  }'
+```
+
+**JavaScript**
+```javascript
+const res = await fetch('https://app.formalingo.com/api/v1/forms', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer af_live_YOUR_KEY',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    title: 'Customer Satisfaction Survey',
+    description: 'Help us improve our service.',
+  }),
+})
+const { data: form } = await res.json()
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const form = await client.forms.post({
+  title: "Customer Satisfaction Survey",
+  description: "Help us improve our service.",
+})
+```
+
+**Python SDK**
+```python
+from formalingo.models.create_form_body import CreateFormBody
+
+# See SDK setup guide for client initialization
+body = CreateFormBody()
+body.title = "Customer Satisfaction Survey"
+body.description = "Help us improve our service."
+form = await client.api.v1.forms.post(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var form = await client.Api.V1.Forms.PostAsync(new() {
+    Title = "Customer Satisfaction Survey",
+    Description = "Help us improve our service.",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.CreateFormBody{
+    Title:       to.Ptr("Customer Satisfaction Survey"),
+    Description: to.Ptr("Help us improve our service."),
+}
+form, err := client.Api().V1().Forms().Post(context.Background(), body, nil)
+```
+
+**Response** (201)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "creatorId": "user-uuid",
+    "workspaceId": "workspace-uuid",
+    "title": "Customer Satisfaction Survey",
+    "description": "Help us improve our service.",
+    "status": "draft",
+    "branding": {},
+    "settings": {},
+    "publicToken": null,
+    "createdAt": "2026-02-25T10:00:00.000Z",
+    "updatedAt": "2026-02-25T10:00:00.000Z"
+  }
+}
+```
+
+## Next steps
+
+After creating a form, you'll typically:
+
+1. [Add sections](/docs/forms/sections) (optional)
+2. [Add questions](/docs/forms/questions)
+3. [Customize branding](/docs/forms/branding) (optional)
+4. [Publish the form](/docs/forms/create#publishing) — `PUT /api/v1/forms/{id}` with `{ "status": "published" }`
+5. [Add recipients](/docs/forms/recipients)
+
+## Publishing
+
+Update the form status to `published` when ready:
+
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "published" }'
+```
+
+Status transitions: `draft → published → archived`. You cannot go backwards.
+
+
+---
+
+# Sections
+
+Sections are optional groupings of questions within a form. Use them to divide long forms into logical pages or chapters.
+
+### `GET` `/api/v1/forms/{id}/sections`
+
+ — Scopes: `read:forms`
+
+### `POST` `/api/v1/forms/{id}/sections`
+
+Create a section — Scopes: `write:forms`
+
+### `PUT` `/api/v1/forms/{id}/sections/{sid}`
+
+Rename or reorder a section — Scopes: `write:forms`
+
+### `DELETE` `/api/v1/forms/{id}/sections/{sid}`
+
+Delete a section (questions remain, unassigned) — Scopes: `write:forms`
+
+## Create a section
+
+**Request Body**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `order` | `integer` | No | Position (0-indexed). Auto-appended if omitted. |
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/sections \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "title": "Personal Information" }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const section = await client.forms.byFormId("FORM_ID").sections.post({
+  title: "Personal Information",
+})
+```
+
+**Python SDK**
+```python
+body = CreateSectionBody()
+body.title = "Personal Information"
+
+section = await client.api.v1.forms.by_form_id("FORM_ID").sections.post(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var section = await client.Api.V1.Forms["FORM_ID"].Sections.PostAsync(new() {
+    Title = "Personal Information",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.CreateSectionBody{
+    Title: to.Ptr("Personal Information"),
+}
+section, err := client.Api().V1().Forms().ByFormId("FORM_ID").Sections().Post(context.Background(), body, nil)
+```
+
+## Assign questions to a section
+
+When creating a question, pass the `section_id` field:
+
+```json
+{
+  "question_text": "What is your name?",
+  "type": "short_text",
+  "section_id": "SECTION_UUID"
+}
+```
+
+
+---
+
+# Questions
+
+### `GET` `/api/v1/forms/{id}/questions`
+
+ — Scopes: `read:forms`
+
+### `POST` `/api/v1/forms/{id}/questions`
+
+Create a question — Scopes: `write:forms`
+
+### `PUT` `/api/v1/forms/{id}/questions/{qid}`
+
+Update a question — Scopes: `write:forms`
+
+### `DELETE` `/api/v1/forms/{id}/questions/{qid}`
+
+Delete a question — Scopes: `write:forms`
+
+## Question types
+
+### Text
+
+| Type | Description |
+|---|---|
+| `short_text` | Single-line text input |
+| `long_text` | Multi-line text area |
+| `email` | Email address with validation |
+| `phone` | Phone number |
+| `url` | URL with validation |
+
+### Choice
+
+| Type | Description |
+|---|---|
+| `mcq` | Multiple choice (single answer) |
+| `multi_select` | Multiple choice (multiple answers) |
+| `dropdown` | Dropdown select |
+| `yes_no` | Boolean yes/no |
+| `checkbox` | Single checkbox (e.g. agreement/consent) |
+| `picture_choice` | Image-based choice with optional labels |
+| `ranking` | Drag-to-rank a list of items |
+| `matrix` | Grid of rows and columns |
+
+### Rating & Scale
+
+| Type | Description |
+|---|---|
+| `rating` | Star or numeric rating |
+| `opinion_scale` | Numbered scale (e.g. 0–10) with labels |
+| `slider` | Draggable slider with min/max/step |
+
+### Number & Calculation
+
+| Type | Description |
+|---|---|
+| `number` | Numeric input with optional min/max |
+| `currency` | Currency amount with currency code selector |
+| `calculation` | Computed field using formulas referencing other fields |
+
+### Date & Time
+
+| Type | Description |
+|---|---|
+| `date` | Date picker |
+| `time` | Time picker (12h or 24h format) |
+| `date_range` | Start and end date range picker |
+
+### Contact
+
+| Type | Description |
+|---|---|
+| `address` | Structured address with configurable sub-fields |
+
+### Upload & Signature
+
+| Type | Description |
+|---|---|
+| `file_upload` | File attachment |
+| `digital_signature` | Draw or upload signature |
+| `initials` | Draw initials |
+
+### Payment
+
+| Type | Description |
+|---|---|
+| `payment` | Collect payments via Stripe |
+
+### Layout
+
+| Type | Description |
+|---|---|
+| `heading` | Section heading (no input collected) |
+| `divider` | Visual separator (no input collected) |
+
+---
+
+## Type-specific options reference
+
+Each question type accepts an `options` object with type-specific fields. All fields are optional unless noted.
+
+### `short_text` / `long_text` / `email` / `phone` / `url`
+
+| Field | Type | Description |
+|---|---|---|
+| `min_length` | integer | Minimum character count |
+| `max_length` | integer | Maximum character count |
+| `pattern` | string | Custom regex pattern for validation (max 200 chars) |
+| `validation_message` | string | Custom error message when validation fails |
+
+### `mcq` / `multi_select` / `dropdown`
+
+| Field | Type | Description |
+|---|---|---|
+| `choices` | string[] | **Required.** Array of option labels |
+| `max_selections` | integer | (`multi_select` only) Maximum selections allowed |
+
+### `picture_choice`
+
+| Field | Type | Description |
+|---|---|---|
+| `picture_choices` | object[] | **Required.** Array of `{ label, image_url? }` objects |
+
+Each item in `picture_choices`:
+
+| Field | Type | Description |
+|---|---|---|
+| `label` | string | **Required.** Display text for the choice |
+| `image_url` | string | Image URL (optional — text-only if omitted) |
+
+### `yes_no`
+
+| Field | Type | Description |
+|---|---|---|
+| `yes_label` | string | Custom "yes" text (default: `"Yes"`) |
+| `no_label` | string | Custom "no" text (default: `"No"`) |
+
+### `rating`
+
+| Field | Type | Description |
+|---|---|---|
+| `min` | integer | Scale minimum (default: `1`) |
+| `max` | integer | Scale maximum (default: `5`) |
+| `min_label` | string | Label for lowest value (e.g. `"Poor"`) |
+| `max_label` | string | Label for highest value (e.g. `"Excellent"`) |
+
+### `opinion_scale`
+
+| Field | Type | Description |
+|---|---|---|
+| `min` | integer | Scale minimum (default: `1`) |
+| `max` | integer | Scale maximum (default: `10`) |
+| `min_label` | string | Label for lowest value |
+| `max_label` | string | Label for highest value |
+
+### `slider`
+
+| Field | Type | Description |
+|---|---|---|
+| `min_value` | number | Slider minimum (default: `0`) |
+| `max_value` | number | Slider maximum (default: `100`) |
+| `step` | number | Increment size (default: `1`) |
+| `show_value` | boolean | Show current value while dragging (default: `true`) |
+
+### `number`
+
+| Field | Type | Description |
+|---|---|---|
+| `min_value` | number | Minimum allowed value |
+| `max_value` | number | Maximum allowed value |
+
+### `currency`
+
+| Field | Type | Description |
+|---|---|---|
+| `currency_code` | string | ISO 4217 code (default: `"USD"`) |
+| `decimal_places` | integer | Precision 0–3 (default: `2`) |
+| `min_value` | number | Minimum amount |
+| `max_value` | number | Maximum amount |
+
+### `date`
+
+| Field | Type | Description |
+|---|---|---|
+| `min_date` | string | Earliest selectable date (`YYYY-MM-DD`) |
+| `max_date` | string | Latest selectable date (`YYYY-MM-DD`) |
+
+### `date_range`
+
+| Field | Type | Description |
+|---|---|---|
+| `min_date` | string | Earliest start date allowed (`YYYY-MM-DD`) |
+| `max_date` | string | Latest end date allowed (`YYYY-MM-DD`) |
+
+Response value: `{ "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" }`
+
+### `time`
+
+| Field | Type | Description |
+|---|---|---|
+| `time_format` | string | `"12h"` or `"24h"` (default: `"24h"`) |
+
+### `address`
+
+| Field | Type | Description |
+|---|---|---|
+| `address_fields` | string[] | Sub-fields to include: `"street"`, `"city"`, `"state"`, `"zip"`, `"country"`. All included by default. |
+
+Response value: `{ "street": "...", "city": "...", "state": "...", "zip": "...", "country": "..." }`
+
+### `ranking`
+
+| Field | Type | Description |
+|---|---|---|
+| `choices` | string[] | **Required.** Items to rank via drag-and-drop |
+
+Response value: ordered array of choice labels.
+
+### `matrix`
+
+| Field | Type | Description |
+|---|---|---|
+| `rows` | string[] | **Required.** Row labels |
+| `columns` | string[] | **Required.** Column labels |
+
+Response value: `{ "row_label": "selected_column", ... }`
+
+### `file_upload`
+
+| Field | Type | Description |
+|---|---|---|
+| `allowed_types` | string[] | Accepted extensions: `pdf`, `doc`, `docx`, `jpg`, `jpeg`, `png`, `gif`, `xlsx`, `csv` |
+| `max_size_mb` | number | Max file size in MB (1–100) |
+
+### `digital_signature` / `initials`
+
+| Field | Type | Description |
+|---|---|---|
+| `signature_mode` | string | `"draw"`, `"upload"`, or `"both"` (default: `"both"`) |
+
+### `calculation`
+
+| Field | Type | Description |
+|---|---|---|
+| `formula` | string | **Required.** Arithmetic expression referencing other fields via `{{Field Label}}`. Supports `+`, `-`, `*`, `/`, `()`. |
+| `decimal_places` | integer | Precision 0–3 (default: `2`) |
+
+Calculation questions are display-only and should not be marked as required.
+
+### `payment`
+
+| Field | Type | Description |
+|---|---|---|
+| `stripe_publishable_key` | string | **Required.** Stripe publishable key (`pk_live_…` or `pk_test_…`) |
+| `amount` | integer | **Required.** Amount in cents (e.g. `2999` = $29.99) |
+| `currency_code` | string | ISO 4217 code (default: `"USD"`) |
+| `payment_description` | string | Description shown to customer (defaults to question text) |
+
+### `heading` / `divider` / `checkbox`
+
+No options. `heading` uses `question_text` as the heading content. `checkbox` uses `question_text` as the agreement statement.
+
+---
+
+## Quiz mode options
+
+When quiz mode is enabled in form settings (`quiz_mode: true`), scorable question types accept additional fields in `options`:
+
+### Choice-based types (`mcq`, `dropdown`, `multi_select`, `picture_choice`, `yes_no`)
+
+| Field | Type | Description |
+|---|---|---|
+| `correct_answers` | string[] | Correct option label(s) |
+| `choice_scores` | object | Label-to-points mapping: `{ "Option A": 10, "Option B": 5 }` |
+| `correct_answer_points` | number | Flat points for a correct answer (used when `choice_scores` is not set) |
+
+### Numeric types (`number`, `currency`, `rating`, `slider`, `opinion_scale`)
+
+| Field | Type | Description |
+|---|---|---|
+| `correct_answer_value` | number | Exact correct numeric answer |
+| `correct_answer_points` | number | Points awarded for a correct answer |
+
+### Text type (`short_text`)
+
+| Field | Type | Description |
+|---|---|---|
+| `correct_answer_text` | string | Expected answer (case-insensitive match) |
+| `correct_answer_points` | number | Points awarded for a correct answer |
+
+---
+
+## Create a question
+
+**Request Body**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `type` | `QuestionType` | Yes | One of the question types above |
+| `section_id` | `uuid` | No | Assign to a section |
+| `order` | `integer` | No | Position within the form (auto-appended if omitted) |
+| `options` | `object` | No | Type-specific options — see reference above |
+
+## Examples
+
+### Text question
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "question_text": "What is your full name?",
+    "type": "short_text",
+    "is_required": true
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const question = await client.forms.byFormId("FORM_ID").questions.post({
+  questionText: "What is your full name?",
+  type: "short_text",
+  isRequired: true,
+})
+```
+
+**Python SDK**
+```python
+body = CreateQuestionBody()
+body.question_text = "What is your full name?"
+body.type = "short_text"
+body.is_required = True
+
+question = await client.api.v1.forms.by_form_id("FORM_ID").questions.post(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var question = await client.Api.V1.Forms["FORM_ID"].Questions.PostAsync(new() {
+    QuestionText = "What is your full name?",
+    Type = "short_text",
+    IsRequired = true,
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.CreateQuestionBody{
+    QuestionText: to.Ptr("What is your full name?"),
+    Type:         to.Ptr("short_text"),
+    IsRequired:   to.Ptr(true),
+}
+question, err := client.Api().V1().Forms().ByFormId("FORM_ID").Questions().Post(context.Background(), body, nil)
+```
+
+### Multiple choice
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "How did you hear about us?",
+    "type": "mcq",
+    "options": { "choices": ["Social media", "Friend", "Search engine", "Other"] }
+  }'
+```
+
+### Picture choice
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Which design do you prefer?",
+    "type": "picture_choice",
+    "options": {
+      "picture_choices": [
+        { "label": "Modern", "image_url": "https://example.com/modern.jpg" },
+        { "label": "Classic", "image_url": "https://example.com/classic.jpg" },
+        { "label": "Minimal" }
+      ]
+    }
+  }'
+```
+
+### Rating
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Rate your overall experience",
+    "type": "rating",
+    "options": { "min": 1, "max": 5, "min_label": "Poor", "max_label": "Excellent" }
+  }'
+```
+
+### Slider
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "How likely are you to recommend us?",
+    "type": "slider",
+    "options": { "min_value": 0, "max_value": 100, "step": 5, "show_value": true }
+  }'
+```
+
+### Matrix
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Rate each aspect of our service",
+    "type": "matrix",
+    "options": {
+      "rows": ["Speed", "Quality", "Support"],
+      "columns": ["Poor", "Fair", "Good", "Excellent"]
+    }
+  }'
+```
+
+### Opinion scale
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "How satisfied are you?",
+    "type": "opinion_scale",
+    "options": { "min": 0, "max": 10, "min_label": "Not at all", "max_label": "Extremely" }
+  }'
+```
+
+### Ranking
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Rank these features by importance",
+    "type": "ranking",
+    "options": { "choices": ["Performance", "Ease of use", "Price", "Support"] }
+  }'
+```
+
+### Currency
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "What is your monthly budget?",
+    "type": "currency",
+    "options": { "currency_code": "EUR", "decimal_places": 2, "min_value": 0 }
+  }'
+```
+
+### Address
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Shipping address",
+    "type": "address",
+    "is_required": true,
+    "options": { "address_fields": ["street", "city", "state", "zip", "country"] }
+  }'
+```
+
+### File upload
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Upload your resume",
+    "type": "file_upload",
+    "is_required": true,
+    "options": { "allowed_types": ["pdf", "doc", "docx"], "max_size_mb": 10 }
+  }'
+```
+
+### Digital signature
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Please sign below",
+    "type": "digital_signature",
+    "is_required": true,
+    "options": { "signature_mode": "both" }
+  }'
+```
+
+### Calculation
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Total Cost",
+    "type": "calculation",
+    "options": { "formula": "{{Quantity}} * {{Unit Price}}", "decimal_places": 2 }
+  }'
+```
+
+### Payment
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Registration fee",
+    "type": "payment",
+    "is_required": true,
+    "options": {
+      "stripe_publishable_key": "pk_live_YOUR_KEY",
+      "amount": 4999,
+      "currency_code": "USD",
+      "payment_description": "Conference registration"
+    }
+  }'
+```
+
+### Date range
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "Preferred travel dates",
+    "type": "date_range",
+    "options": { "min_date": "2026-04-01", "max_date": "2026-12-31" }
+  }'
+```
+
+### Quiz: scored multiple choice
+
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/questions \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question_text": "What is the capital of France?",
+    "type": "mcq",
+    "is_required": true,
+    "options": {
+      "choices": ["London", "Berlin", "Paris", "Madrid"],
+      "correct_answers": ["Paris"],
+      "choice_scores": { "Paris": 10, "London": 0, "Berlin": 0, "Madrid": 0 }
+    }
+  }'
+```
+
+
+---
+
+# Recipients
+
+A recipient is a person invited to fill out a form. Each recipient gets a unique link and optionally pre-filled answers.
+
+### `GET` `/api/v1/forms/{id}/recipients`
+
+ — Scopes: `read:recipients`
+
+### `POST` `/api/v1/forms/{id}/recipients`
+
+Create a recipient with optional pre-fill — Scopes: `write:recipients`
+
+### `PUT` `/api/v1/forms/{id}/recipients/{rid}`
+
+Update a recipient — Scopes: `write:recipients`
+
+### `DELETE` `/api/v1/forms/{id}/recipients/{rid}`
+
+Delete a recipient — Scopes: `delete:recipients`
+
+## Create a recipient
+
+**Request Body**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `email` | `email` | No | Triggers invitation email if a mail integration is configured |
+| `phone` | `string` | No | Phone number (for SMS notifications if configured) |
+| `password` | `string` | No | Password-protect the form link (min 4 chars) |
+| `expires_at` | `datetime` | No | ISO 8601 expiry — link becomes inactive after this time |
+| `prefill` | `object` | No | Map of questionId → value. Saves responses immediately. |
+
+## Pre-filling answers
+
+The `prefill` field accepts a map of question IDs to values. The API saves these as `Response` records immediately — the recipient will see the answers pre-populated when they open the link.
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/recipients \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "label": "John Doe",
+    "email": "john@acme.com",
+    "expires_at": "2026-03-31T23:59:59Z",
+    "prefill": {
+      "question-uuid-1": "John Doe",
+      "question-uuid-2": "Acme Corp",
+      "question-uuid-3": "john@acme.com"
+    }
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const recipient = await client.forms.byFormId("FORM_ID").recipients.post({
+  label: "John Doe",
+  email: "john@acme.com",
+  expiresAt: "2026-03-31T23:59:59Z",
+  prefill: {
+    "question-uuid-1": "John Doe",
+    "question-uuid-2": "Acme Corp",
+  },
+})
+console.log(recipient.link)
+```
+
+**Python SDK**
+```python
+# See SDK setup guide for client initialization
+
+body = CreateRecipientBody()
+body.label = "John Doe"
+body.email = "john@acme.com"
+body.prefill = {
+    "question-uuid-1": "John Doe",
+    "question-uuid-2": "Acme Corp",
+}
+
+recipient = await client.api.v1.forms.by_form_id("FORM_ID").recipients.post(body)
+print(recipient.link)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var recipient = await client.Api.V1.Forms["FORM_ID"].Recipients.PostAsync(new() {
+    Label = "John Doe",
+    Email = "john@acme.com",
+    ExpiresAt = "2026-03-31T23:59:59Z",
+    Prefill = new() {
+        ["question-uuid-1"] = "John Doe",
+        ["question-uuid-2"] = "Acme Corp",
+    },
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.CreateRecipientBody{
+    Label: to.Ptr("John Doe"),
+    Email: to.Ptr("john@acme.com"),
+    ExpiresAt: to.Ptr("2026-03-31T23:59:59Z"),
+    Prefill: map[string]string{
+        "question-uuid-1": "John Doe",
+        "question-uuid-2": "Acme Corp",
+    },
+}
+recipient, err := client.Api().V1().Forms().ByFormId("FORM_ID").Recipients().Post(context.Background(), body, nil)
+```
+
+**Response** (201)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "recipient-uuid",
+    "form_id": "form-uuid",
+    "label": "John Doe",
+    "email": "john@acme.com",
+    "token": "abc123",
+    "status": "not_started",
+    "is_active": true,
+    "is_anonymous": false,
+    "has_password": false,
+    "link": "https://www.formalingo.com/f/abc123",
+    "response_count": 3,
+    "visit_count": 0,
+    "total_questions": 5,
+    "created_at": "2026-02-25T10:00:00.000Z"
+  }
+}
+```
+
+## The recipient link
+
+The `link` field in the response is the URL the recipient uses to fill out the form. Share this via email, embed it in your application, or use it for redirects.
+
+
+---
+
+# Branding
+
+### `PUT` `/api/v1/forms/{id}/branding`
+
+ — Scopes: `write:forms`
+
+**Request Body (all fields optional)**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+
+**curl**
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID/branding \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "primary_color": "#6366F1",
+    "welcome_heading": "Welcome!",
+    "welcome_subtitle": "This will only take a minute.",
+    "thank_you_heading": "Thank you!",
+    "thank_you_message": "We appreciate your feedback."
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+await client.forms.byFormId("FORM_ID").branding.put({
+  primaryColor: "#6366F1",
+  welcomeHeading: "Welcome!",
+  welcomeSubtitle: "This will only take a minute.",
+  thankYouHeading: "Thank you!",
+  thankYouMessage: "We appreciate your feedback.",
+})
+```
+
+**Python SDK**
+```python
+body = BrandingUpdateRequest()
+body.primary_color = "#6366F1"
+body.welcome_heading = "Welcome!"
+body.thank_you_heading = "Thank you!"
+body.thank_you_message = "We appreciate your feedback."
+
+await client.api.v1.forms.by_form_id("FORM_ID").branding.put(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+await client.Api.V1.Forms["FORM_ID"].Branding.PutAsync(new() {
+    PrimaryColor = "#6366F1",
+    WelcomeHeading = "Welcome!",
+    ThankYouHeading = "Thank you!",
+    ThankYouMessage = "We appreciate your feedback.",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.BrandingUpdateRequest{
+    PrimaryColor:    to.Ptr("#6366F1"),
+    WelcomeHeading:  to.Ptr("Welcome!"),
+    ThankYouHeading: to.Ptr("Thank you!"),
+    ThankYouMessage: to.Ptr("We appreciate your feedback."),
+}
+err := client.Api().V1().Forms().ByFormId("FORM_ID").Branding().Put(context.Background(), body, nil)
+```
+
+
+---
+
+# Form Settings
+
+### `PUT` `/api/v1/forms/{id}/settings`
+
+ — Scopes: `write:forms`
+
+**Request Body (all optional)**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+
+**curl**
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID/settings \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "display_mode": "one_at_a_time",
+    "language": "en"
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+await client.forms.byFormId("FORM_ID").settings.put({
+  displayMode: "one_at_a_time",
+  language: "en",
+})
+```
+
+**Python SDK**
+```python
+body = SettingsUpdateRequest()
+body.display_mode = "one_at_a_time"
+body.language = "en"
+
+await client.api.v1.forms.by_form_id("FORM_ID").settings.put(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+await client.Api.V1.Forms["FORM_ID"].Settings.PutAsync(new() {
+    DisplayMode = "one_at_a_time",
+    Language = "en",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.SettingsUpdateRequest{
+    DisplayMode: to.Ptr("one_at_a_time"),
+    Language:    to.Ptr("en"),
+}
+err := client.Api().V1().Forms().ByFormId("FORM_ID").Settings().Put(context.Background(), body, nil)
+```
+
+### Example: enable quiz mode
+
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID/settings \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "quiz_mode": true
+  }'
+```
+
+### Example: set redirect and expiry
+
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID/settings \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "redirect_url": "https://example.com/thank-you",
+    "closes_at": "2026-12-31T23:59:59Z"
+  }'
+```
+
+
+---
+
+# Conditional Logic
+
+Rules show or hide questions/sections based on answers to other questions.
+
+### `GET` `/api/v1/forms/{id}/rules`
+
+ — Scopes: `read:forms`
+
+### `POST` `/api/v1/forms/{id}/rules`
+
+Create a rule — Scopes: `write:forms`
+
+### `PUT` `/api/v1/forms/{id}/rules/{rid}`
+
+Update a rule — Scopes: `write:forms`
+
+### `DELETE` `/api/v1/forms/{id}/rules/{rid}`
+
+Delete a rule — Scopes: `write:forms`
+
+## Create a rule
+
+**Request Body**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `source_question_id` | `uuid` | Yes | The question whose answer triggers this rule |
+| `operator` | `string` | Yes | equals | not_equals | contains | greater_than | less_than | is_empty | is_not_empty |
+| `value` | `any` | No | The value to compare against (omit for is_empty/is_not_empty) |
+| `action` | `show | hide` | Yes | What to do with the target |
+| `target_question_id` | `uuid` | No | Target question (provide this or target_section_id) |
+| `target_section_id` | `uuid` | No | Target section (provide this or target_question_id) |
+
+### Example: hide a question unless "Other" is selected
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/rules \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "source_question_id": "SOURCE_QUESTION_UUID",
+    "operator": "equals",
+    "value": "Other",
+    "action": "show",
+    "target_question_id": "TARGET_QUESTION_UUID"
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const rule = await client.forms.byFormId("FORM_ID").rules.post({
+  sourceQuestionId: "SOURCE_QUESTION_UUID",
+  operator: "equals",
+  value: "Other",
+  action: "show",
+  targetQuestionId: "TARGET_QUESTION_UUID",
+})
+```
+
+**Python SDK**
+```python
+body = RuleCreateRequest()
+body.source_question_id = "SOURCE_QUESTION_UUID"
+body.operator = "equals"
+body.value = "Other"
+body.action = "show"
+body.target_question_id = "TARGET_QUESTION_UUID"
+
+rule = await client.api.v1.forms.by_form_id("FORM_ID").rules.post(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var rule = await client.Api.V1.Forms["FORM_ID"].Rules.PostAsync(new() {
+    SourceQuestionId = "SOURCE_QUESTION_UUID",
+    Operator = "equals",
+    Value = "Other",
+    Action = "show",
+    TargetQuestionId = "TARGET_QUESTION_UUID",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.RuleCreateRequest{
+    SourceQuestionId: to.Ptr("SOURCE_QUESTION_UUID"),
+    Operator:         to.Ptr("equals"),
+    Value:            to.Ptr("Other"),
+    Action:           to.Ptr("show"),
+    TargetQuestionId: to.Ptr("TARGET_QUESTION_UUID"),
+}
+rule, err := client.Api().V1().Forms().ByFormId("FORM_ID").Rules().Post(context.Background(), body, nil)
+```
+
+
+---
+
+# Embedding Forms
+
+Formalingo forms can be embedded on external websites using two methods:
+a simple **iframe snippet** or the **JavaScript SDK** with auto-resize and event callbacks.
+
+## Quick Start — iFrame
+
+The simplest way to embed a public form:
+
+```html
+
+```
+
+Replace `PUBLIC_TOKEN` with your form's public token (found in the form editor Settings tab or the form detail page).
+
+## Quick Start — JavaScript SDK
+
+For richer control including auto-resize and event callbacks, use the embed SDK:
+
+```html
+
+```
+
+The SDK automatically resizes the iframe to fit the form content, eliminating scrollbars.
+
+## SDK Options Reference
+
+**Formalingo.createForm(options)**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+
+The `createForm` method returns an object with:
+- `iframe` — the HTMLIFrameElement reference
+- `destroy()` — removes the iframe and cleans up event listeners (useful for SPAs)
+
+## postMessage Events
+
+Embedded forms emit events to the parent window via `postMessage`. All events are prefixed with `formalingo.` and have this structure:
+
+```json
+{
+  "type": "formalingo.eventName",
+  "payload": { ... }
+}
+```
+
+### Event Reference
+
+**Events**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+
+### Listening to Events Without the SDK
+
+If you use the iframe embed directly (without the SDK), you can listen for events manually:
+
+```javascript
+window.addEventListener('message', function(event) {
+  var data = event.data;
+  if (!data || !data.type || data.type.indexOf('formalingo.') !== 0) return;
+
+  switch (data.type) {
+    case 'formalingo.formSubmitted':
+      console.log('Form submitted:', data.payload);
+      break;
+    case 'formalingo.formHeight':
+      // Auto-resize the iframe
+      document.querySelector('iframe').style.height = data.payload.height + 'px';
+      break;
+  }
+});
+```
+
+## Domain Whitelisting
+
+Restrict which websites can embed your form for security. When enabled, browsers will block embedding from unlisted domains.
+
+### Via Dashboard
+
+1. Open the form editor **Settings** tab
+2. Scroll to the **Embed** section
+3. Toggle **Domain Whitelisting** on
+4. Add allowed domains (e.g., `example.com`, `*.company.io`)
+
+### Via API
+
+**curl**
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID/settings \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "embed_allowed_domains": ["example.com", "*.company.io"]
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+await client.forms.byFormId("FORM_ID").settings.put({
+    embedAllowedDomains: ["example.com", "*.company.io"],
+})
+```
+
+**Python SDK**
+```python
+body = SettingsUpdateRequest()
+body.embed_allowed_domains = ["example.com", "*.company.io"]
+
+await client.api.v1.forms.by_form_id("FORM_ID").settings.put(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+await client.Api.V1.Forms["FORM_ID"].Settings.PutAsync(new() {
+    EmbedAllowedDomains = new() { "example.com", "*.company.io" },
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.SettingsUpdateRequest{
+    EmbedAllowedDomains: []string{"example.com", "*.company.io"},
+}
+err := client.Api().V1().Forms().ByFormId("FORM_ID").Settings().Put(context.Background(), body, nil)
+```
+
+Set to `null` to disable whitelisting and allow embedding from any domain:
+
+**curl**
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID/settings \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "embed_allowed_domains": null
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+await client.forms.byFormId("FORM_ID").settings.put({
+  embedAllowedDomains: null,
+})
+```
+
+**Python SDK**
+```python
+body = SettingsUpdateRequest()
+body.embed_allowed_domains = None
+
+await client.api.v1.forms.by_form_id("FORM_ID").settings.put(body)
+```
+
+**.NET SDK**
+```csharp
+await client.Api.V1.Forms["FORM_ID"].Settings.PutAsync(new() {
+    EmbedAllowedDomains = null,
+});
+```
+
+**Go SDK**
+```go
+body := &models.SettingsUpdateRequest{
+    EmbedAllowedDomains: nil,
+}
+err := client.Api().V1().Forms().ByFormId("FORM_ID").Settings().Put(context.Background(), body, nil)
+```
+
+## Embedding Private Forms
+
+Private forms (shared via individual recipient links) can also be embedded using the recipient token URL:
+
+```html
+
+```
+
+Or with the SDK:
+
+```javascript
+Formalingo.createForm({
+  container: '#my-form',
+  formUrl: 'https://www.formalingo.com/f/RECIPIENT_TOKEN'
+});
+```
+
+All postMessage events work identically for private forms. Password-protected forms will display the password gate inside the iframe.
+
+## Troubleshooting
+
+| Issue | Cause | Fix |
+|---|---|---|
+| Form doesn't load in iframe | Domain blocked by whitelist | Check the form's `embed_allowed_domains` setting |
+| No auto-resize | SDK script not loaded | Verify the `embed.js` script tag loads correctly |
+| Redirect doesn't work when embedded | Embedded forms emit `formRedirect` instead of navigating | Use the `onRedirect` callback to handle redirects in the parent page |
+| Console error: `Refused to display in a frame` | CSP `frame-ancestors` restriction | Add your domain to the form's allowed embed domains |
+
+
+---
+
+# Archiving & Deleting Forms
+
+### `DELETE` `/api/v1/forms/{id}`
+
+ — Scopes: `delete:forms`
+
+## Soft delete (default)
+
+By default, `DELETE /api/v1/forms/{id}` soft-deletes the form — it moves it to Trash and can be restored from the dashboard. Existing recipient links and responses are preserved.
+
+**curl**
+```bash
+curl -X DELETE https://app.formalingo.com/api/v1/forms/FORM_ID \\
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+await client.forms.byFormId("FORM_ID").delete()
+```
+
+**Python SDK**
+```python
+await client.api.v1.forms.by_form_id("FORM_ID").delete()
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+await client.Api.V1.Forms["FORM_ID"].DeleteAsync();
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+err := client.Api().V1().Forms().ByFormId("FORM_ID").Delete(context.Background(), nil)
+```
+
+## Archive first
+
+You can also archive a form without deleting it by updating its status:
+
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/forms/FORM_ID \
+  -H "Authorization: Bearer af_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "archived" }'
+```
+
+Archived forms are still accessible to existing recipients but closed for new submissions.
+
+## Permanent delete
+
+Add `?permanent=true` to irreversibly delete the form and all its data:
+
+```bash
+curl -X DELETE "https://app.formalingo.com/api/v1/forms/FORM_ID?permanent=true" \
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+> **Warning:** Permanent deletion cannot be undone. All questions, sections, recipients, and responses are permanently removed.
+
+The `delete:forms` scope is required for both operations.
+
+
+---
+
+# Documents
+
+Documents are PDFs or DOCX files with placed signature and data fields. Create a submission to send it to one or more signers.
+
+## Document lifecycle
+
+```
+draft → sent → completed
+            ↓
+          expired
+```
+
+## Structure
+
+```
+Document
+├── Fields (positioned on pages: signature, text, date, etc.)
+├── Signer Roles (template: Client, Witness, etc.)
+└── Submissions
+    └── Signers (one per role, with unique signing links)
+        └── Responses (field values)
+```
+
+## Available endpoints
+
+### `GET` `/api/v1/documents`
+
+List documents in your workspace — Scopes: `read:documents`
+
+### `POST` `/api/v1/documents`
+
+Upload a PDF or DOCX — Scopes: `write:documents`
+
+### `GET` `/api/v1/documents/{id}`
+
+Get document with fields and signer roles — Scopes: `read:documents`
+
+### `PUT` `/api/v1/documents/{id}`
+
+Update title or status — Scopes: `write:documents`
+
+### `DELETE` `/api/v1/documents/{id}`
+
+Soft-delete or permanently delete — Scopes: `delete:documents`
+
+
+---
+
+# Upload a Document
+
+### `POST` `/api/v1/documents`
+
+Upload via multipart/form-data — Scopes: `write:documents`
+
+Documents must be uploaded as `multipart/form-data`. Supported formats: **PDF** and **DOCX**. Maximum size: **50 MB**.
+
+**Form Data Fields**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `file` | `File` | Yes | The PDF or DOCX file to upload |
+| `title` | `string` | No | Document title. Defaults to the filename. |
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -F "file=@/path/to/contract.pdf" \\
+  -F "title=Service Agreement"
+```
+
+**JavaScript**
+```javascript
+const formData = new FormData()
+formData.append('file', fileBlob, 'contract.pdf')
+formData.append('title', 'Service Agreement')
+
+const res = await fetch('https://app.formalingo.com/api/v1/documents', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer af_live_YOUR_KEY' },
+  body: formData,
+})
+const { data: document } = await res.json()
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+// Note: File uploads use multipart/form-data.
+// Use the raw fetch approach above or the generated
+// multipart request builder from the SDK.
+const document = await client.documents.post({
+  file: fileBlob,
+  title: "Service Agreement",
+})
+```
+
+**Python SDK**
+```python
+# Note: File uploads use multipart/form-data.
+# Use the generated multipart request builder.
+
+document = await client.api.v1.documents.post(body)
+# body.file = open("/path/to/contract.pdf", "rb")
+# body.title = "Service Agreement"
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+// File uploads use multipart/form-data
+using var stream = File.OpenRead("/path/to/contract.pdf");
+var document = await client.Api.V1.Documents.PostAsync(new() {
+    File = stream,
+    Title = "Service Agreement",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+// File uploads use multipart/form-data
+f, _ := os.Open("/path/to/contract.pdf")
+defer f.Close()
+
+body := &models.CreateDocumentBody{
+    File:  f,
+    Title: to.Ptr("Service Agreement"),
+}
+doc, err := client.Api().V1().Documents().Post(context.Background(), body, nil)
+```
+
+**Response** (201)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "doc-uuid",
+    "title": "Service Agreement",
+    "status": "draft",
+    "originalFilename": "contract.pdf",
+    "fileType": "pdf",
+    "originalUrl": "https://storage.url/...",
+    "pageCount": null,
+    "createdAt": "2026-02-25T10:00:00.000Z",
+    "updatedAt": "2026-02-25T10:00:00.000Z"
+  }
+}
+```
+
+## Next steps
+
+After uploading:
+
+1. [Place fields](/docs/documents/fields) on the document pages
+2. [Create signer roles](/docs/documents/signer-roles)
+3. [Create a submission](/docs/documents/submissions) with your signers
+
+
+---
+
+# Document Fields
+
+Fields are positioned elements on document pages — signature boxes, text inputs, date pickers, etc. Coordinates are normalized (0–1) relative to the page dimensions.
+
+### `GET` `/api/v1/documents/{id}/fields`
+
+ — Scopes: `read:documents`
+
+### `POST` `/api/v1/documents/{id}/fields`
+
+Place a field — Scopes: `write:documents`
+
+### `PUT` `/api/v1/documents/{id}/fields/{fid}`
+
+Update a field — Scopes: `write:documents`
+
+### `DELETE` `/api/v1/documents/{id}/fields/{fid}`
+
+Remove a field — Scopes: `write:documents`
+
+## Field types
+
+Same types as form questions: `digital_signature`, `initials`, `short_text`, `date`, `email`, `phone`, `number`, `yes_no`, `mcq`, `dropdown`.
+
+## Place a field
+
+**Required Fields**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `pageNumber` | `integer` | Yes | 1-indexed page number |
+| `x` | `float` | Yes | Normalized x position (0–1 from left) |
+| `y` | `float` | Yes | Normalized y position (0–1 from top) |
+| `width` | `float` | Yes | Normalized width (0–1) |
+| `height` | `float` | Yes | Normalized height (0–1) |
+
+**Optional Fields**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `defaultValue` | `string` | No | Pre-populated value. Use __today__ for current date. |
+| `direction` | `auto | rtl | ltr` | No | Text direction for RTL languages |
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents/DOC_ID/fields \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "label": "Client Signature",
+    "type": "digital_signature",
+    "pageNumber": 3,
+    "x": 0.1,
+    "y": 0.85,
+    "width": 0.35,
+    "height": 0.06,
+    "isRequired": true,
+    "assigneeRole": "signer_1"
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const field = await client.documents.byDocumentId("DOC_ID").fields.post({
+  label: "Client Signature",
+  type: "digital_signature",
+  pageNumber: 3,
+  x: 0.1,
+  y: 0.85,
+  width: 0.35,
+  height: 0.06,
+  isRequired: true,
+  assigneeRole: "signer_1",
+})
+```
+
+**Python SDK**
+```python
+body = CreateFieldBody()
+body.label = "Client Signature"
+body.type = "digital_signature"
+body.page_number = 3
+body.x = 0.1
+body.y = 0.85
+body.width = 0.35
+body.height = 0.06
+body.is_required = True
+body.assignee_role = "signer_1"
+
+field = await client.api.v1.documents.by_document_id("DOC_ID").fields.post(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var field = await client.Api.V1.Documents["DOC_ID"].Fields.PostAsync(new() {
+    Label = "Client Signature",
+    Type = "digital_signature",
+    PageNumber = 3,
+    X = 0.1f,
+    Y = 0.85f,
+    Width = 0.35f,
+    Height = 0.06f,
+    IsRequired = true,
+    AssigneeRole = "signer_1",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.CreateFieldBody{
+    Label:        to.Ptr("Client Signature"),
+    Type:         to.Ptr("digital_signature"),
+    PageNumber:   to.Ptr(int32(3)),
+    X:            to.Ptr(float64(0.1)),
+    Y:            to.Ptr(float64(0.85)),
+    Width:        to.Ptr(float64(0.35)),
+    Height:       to.Ptr(float64(0.06)),
+    IsRequired:   to.Ptr(true),
+    AssigneeRole: to.Ptr("signer_1"),
+}
+field, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Fields().Post(context.Background(), body, nil)
+```
+
+
+---
+
+# Signer Roles
+
+Signer roles are **templates** — they define who will sign (e.g. "Client", "Witness") without specifying actual people. Real signers are added when you [create a submission](/docs/documents/submissions).
+
+### `GET` `/api/v1/documents/{id}/signer-roles`
+
+ — Scopes: `read:documents`
+
+### `POST` `/api/v1/documents/{id}/signer-roles`
+
+Create a signer role — Scopes: `write:documents`
+
+### `DELETE` `/api/v1/documents/{id}/signer-roles/{rid}`
+
+Delete a role — Scopes: `write:documents`
+
+## Create a signer role
+
+The API auto-assigns a color and a role identifier (`signer_1`, `signer_2`, etc.).
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents/DOC_ID/signer-roles \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "label": "Client" }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+// See SDK setup guide for client initialization
+const role = await client.documents.byDocumentId("DOC_ID").signerRoles.post({
+  label: "Client",
+})
+```
+
+**Python SDK**
+```python
+body = CreateSignerRoleBody()
+body.label = "Client"
+
+role = await client.api.v1.documents.by_document_id("DOC_ID").signer_roles.post(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var role = await client.Api.V1.Documents["DOC_ID"].SignerRoles.PostAsync(new() {
+    Label = "Client",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.CreateSignerRoleBody{
+    Label: to.Ptr("Client"),
+}
+role, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").SignerRoles().Post(context.Background(), body, nil)
+```
+
+**Response** (201)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "role-uuid",
+    "documentId": "doc-uuid",
+    "role": "signer_1",
+    "label": "Client",
+    "color": "#2563EB",
+    "order": 0
+  }
+}
+```
+
+The `role` value (e.g. `signer_1`) is what you reference when [placing fields](/docs/documents/fields) (`assigneeRole`) and when [creating submissions](/docs/documents/submissions).
+
+
+---
+
+# Submissions
+
+A submission instantiates a signing workflow — it maps real people to signer roles and generates unique signing links.
+
+### `GET` `/api/v1/documents/{id}/submissions`
+
+ — Scopes: `read:submissions`
+
+### `POST` `/api/v1/documents/{id}/submissions`
+
+Create a submission with signers and pre-fill — Scopes: `write:submissions`
+
+### `DELETE` `/api/v1/documents/{id}/submissions/{sid}`
+
+Delete a submission — Scopes: `write:submissions`
+
+## Create a submission
+
+**Request Body**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `signers` | `SignerInput[]` | Yes | One entry per signer role. Must cover all required roles. |
+
+**SignerInput fields**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | `string` | No | Full name of the signer |
+| `email` | `email` | No | Triggers invitation email if mail integration is configured |
+| `phone` | `string` | No | Phone for SMS notifications |
+| `password` | `string` | No | Protect the signing link with a password |
+| `prefill` | `object` | No | Map of fieldId → value. Creates DocumentResponse records immediately. |
+| `prefillReadonly` | `boolean` | No | If true, prefilled fields are locked for editing by the signer |
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents/DOC_ID/submissions \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "signers": [
+      {
+        "role": "signer_1",
+        "name": "John Doe",
+        "email": "john@acme.com",
+        "prefill": {
+          "field-uuid-1": "John Doe",
+          "field-uuid-2": "Acme Corp Ltd",
+          "field-uuid-3": "2026-03-01"
+        },
+        "prefillReadonly": true
+      }
+    ]
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const submission = await client.documents
+  .byDocumentId("DOC_ID")
+  .submissions.post({
+    signers: [{
+      role: "signer_1",
+      name: "John Doe",
+      email: "john@acme.com",
+      prefill: {
+        "field-uuid-1": "John Doe",
+        "field-uuid-2": "Acme Corp Ltd",
+      },
+      prefillReadonly: true,
+    }],
+  })
+
+const signerLink = submission.signers[0].link
+```
+
+**Python SDK**
+```python
+# See SDK setup guide for client initialization
+
+signer = SignerInput()
+signer.role = "signer_1"
+signer.name = "John Doe"
+signer.email = "john@acme.com"
+signer.prefill = {"field-uuid-1": "John Doe"}
+signer.prefill_readonly = True
+
+body = CreateSubmissionBody()
+body.signers = [signer]
+
+submission = await client.api.v1.documents.by_document_id("DOC_ID").submissions.post(body)
+signer_link = submission.signers[0].link
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+var submission = await client.Api.V1.Documents["DOC_ID"].Submissions.PostAsync(new() {
+    Signers = new() {
+        new() {
+            Role = "signer_1",
+            Name = "John Doe",
+            Email = "john@acme.com",
+            Prefill = new() {
+                ["field-uuid-1"] = "John Doe",
+            },
+            PrefillReadonly = true,
+        },
+    },
+});
+var signerLink = submission.Signers[0].Link;
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.CreateSubmissionBody{
+    Signers: []models.SignerInput{{
+        Role:            to.Ptr("signer_1"),
+        Name:            to.Ptr("John Doe"),
+        Email:           to.Ptr("john@acme.com"),
+        Prefill:         map[string]string{"field-uuid-1": "John Doe"},
+        PrefillReadonly: to.Ptr(true),
+    }},
+}
+submission, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Submissions().Post(context.Background(), body, nil)
+signerLink := submission.Signers[0].Link
+```
+
+**Response** (201)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "submission-uuid",
+    "documentId": "doc-uuid",
+    "status": "pending",
+    "createdAt": "2026-02-25T10:00:00.000Z",
+    "completedAt": null,
+    "completedPdfUrl": null,
+    "signers": [
+      {
+        "id": "signer-uuid",
+        "role": "signer_1",
+        "label": "Client",
+        "name": "John Doe",
+        "email": "john@acme.com",
+        "token": "abc123xyz",
+        "status": "pending",
+        "link": "https://www.formalingo.com/d/abc123xyz",
+        "order": 0,
+        "createdAt": "2026-02-25T10:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+## The signing link
+
+Each signer in the response has a `link` — share it with the signer for them to review and sign the document. Once all signers complete signing, the submission status becomes `completed` and a `completedPdfUrl` is available.
+
+
+---
+
+# Managing Signers
+
+### `GET` `/api/v1/documents/{id}/submissions/{sid}/signers`
+
+ — Scopes: `read:submissions`
+
+### `PUT` `/api/v1/documents/{id}/submissions/{sid}/signers/{signerId}`
+
+Update a signer — Scopes: `write:submissions`
+
+### `DELETE` `/api/v1/documents/{id}/submissions/{sid}/signers/{signerId}`
+
+Remove a signer — Scopes: `write:submissions`
+
+## Update a signer
+
+Use this to correct contact details or update expiry:
+
+**Request Body (all optional)**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+
+**curl**
+```bash
+curl -X PUT https://app.formalingo.com/api/v1/documents/DOC_ID/submissions/SUB_ID/signers/SIGNER_ID \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "new-email@acme.com",
+    "expiresAt": "2026-04-30T23:59:59Z"
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+await client.documents
+  .byDocumentId("DOC_ID")
+  .submissions.bySubmissionId("SUB_ID")
+  .signers.bySignerId("SIGNER_ID")
+  .put({
+    email: "new-email@acme.com",
+    expiresAt: "2026-04-30T23:59:59Z",
+  })
+```
+
+**Python SDK**
+```python
+from formalingo import create_client
+
+client = create_client("af_live_YOUR_KEY")
+
+body = UpdateSignerBody()
+body.email = "new-email@acme.com"
+body.expires_at = "2026-04-30T23:59:59Z"
+
+result = await client.api.v1.documents.by_document_id("DOC_ID").submissions.by_submission_id("SUB_ID").signers.by_signer_id("SIGNER_ID").put(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+await client.Api.V1.Documents["DOC_ID"]
+    .Submissions["SUB_ID"]
+    .Signers["SIGNER_ID"]
+    .PutAsync(new() {
+        Email = "new-email@acme.com",
+        ExpiresAt = "2026-04-30T23:59:59Z",
+    });
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+body := &models.UpdateSignerBody{
+    Email:     to.Ptr("new-email@acme.com"),
+    ExpiresAt: to.Ptr("2026-04-30T23:59:59Z"),
+}
+_, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Submissions().BySubmissionId("SUB_ID").Signers().BySignerId("SIGNER_ID").Put(context.Background(), body, nil)
+```
+
+## Remove a signer
+
+**curl**
+```bash
+curl -X DELETE https://app.formalingo.com/api/v1/documents/DOC_ID/submissions/SUB_ID/signers/SIGNER_ID \\
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+**TypeScript SDK**
+```typescript
+await client.documents
+  .byDocumentId("DOC_ID")
+  .submissions.bySubmissionId("SUB_ID")
+  .signers.bySignerId("SIGNER_ID")
+  .delete()
+```
+
+**Python SDK**
+```python
+await client.api.v1.documents.by_document_id("DOC_ID").submissions.by_submission_id("SUB_ID").signers.by_signer_id("SIGNER_ID").delete()
+```
+
+**.NET SDK**
+```csharp
+await client.Api.V1.Documents["DOC_ID"]
+    .Submissions["SUB_ID"]
+    .Signers["SIGNER_ID"]
+    .DeleteAsync();
+```
+
+**Go SDK**
+```go
+err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Submissions().BySubmissionId("SUB_ID").Signers().BySignerId("SIGNER_ID").Delete(context.Background(), nil)
+```
+
+> **Note:** Removing a signer that has already completed signing has no effect on the audit trail.
+
+
+---
+
+# End-to-End Signing Flow
+
+This guide walks through the complete workflow from uploading a document to getting a signed PDF.
+
+## Step 1: Upload the document
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -F "file=@contract.pdf" \\
+  -F "title=Service Agreement"
+# → { "data": { "id": "DOC_ID", ... } }
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+const doc = await client.documents.post({
+  file: fs.createReadStream("contract.pdf"),
+  title: "Service Agreement",
+})
+```
+
+**Python SDK**
+```python
+from formalingo import create_client
+
+client = create_client("af_live_YOUR_KEY")
+
+# File upload requires multipart form data
+body = CreateDocumentBody()
+body.file = open("contract.pdf", "rb")
+body.title = "Service Agreement"
+doc = await client.api.v1.documents.post(body)
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+// File upload via multipart form
+using var stream = File.OpenRead("contract.pdf");
+var doc = await client.Api.V1.Documents.PostAsync(new() {
+    File = stream,
+    Title = "Service Agreement",
+});
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+// File upload via multipart form
+f, _ := os.Open("contract.pdf")
+body := &models.CreateDocumentBody{
+    File:  f,
+    Title: to.Ptr("Service Agreement"),
+}
+doc, err := client.Api().V1().Documents().Post(context.Background(), body, nil)
+```
+
+## Step 2: Create signer roles
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents/DOC_ID/signer-roles \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "label": "Client" }'
+# → { "data": { "role": "signer_1", ... } }
+```
+
+**TypeScript SDK**
+```typescript
+const role = await client.documents
+  .byDocumentId("DOC_ID")
+  .signerRoles.post({ label: "Client" })
+```
+
+**Python SDK**
+```python
+body = CreateSignerRoleBody()
+body.label = "Client"
+role = await client.api.v1.documents.by_document_id("DOC_ID").signer_roles.post(body)
+```
+
+**.NET SDK**
+```csharp
+var role = await client.Api.V1.Documents["DOC_ID"]
+    .SignerRoles.PostAsync(new() { Label = "Client" });
+```
+
+**Go SDK**
+```go
+body := &models.CreateSignerRoleBody{
+    Label: to.Ptr("Client"),
+}
+role, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").SignerRoles().Post(context.Background(), body, nil)
+```
+
+## Step 3: Place fields on the document
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents/DOC_ID/fields \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "label": "Client Signature",
+    "type": "digital_signature",
+    "pageNumber": 2,
+    "x": 0.1, "y": 0.85,
+    "width": 0.35, "height": 0.06,
+    "assigneeRole": "signer_1",
+    "isRequired": true
+  }'
+```
+
+**TypeScript SDK**
+```typescript
+const field = await client.documents.byDocumentId("DOC_ID").fields.post({
+  label: "Client Signature",
+  type: "digital_signature",
+  pageNumber: 2,
+  x: 0.1,
+  y: 0.85,
+  width: 0.35,
+  height: 0.06,
+  assigneeRole: "signer_1",
+  isRequired: true,
+})
+```
+
+**Python SDK**
+```python
+body = CreateFieldBody()
+body.label = "Client Signature"
+body.type = "digital_signature"
+body.page_number = 2
+body.x = 0.1
+body.y = 0.85
+body.width = 0.35
+body.height = 0.06
+body.assignee_role = "signer_1"
+body.is_required = True
+
+field = await client.api.v1.documents.by_document_id("DOC_ID").fields.post(body)
+```
+
+**.NET SDK**
+```csharp
+var field = await client.Api.V1.Documents["DOC_ID"].Fields.PostAsync(new() {
+    Label = "Client Signature",
+    Type = "digital_signature",
+    PageNumber = 2,
+    X = 0.1f,
+    Y = 0.85f,
+    Width = 0.35f,
+    Height = 0.06f,
+    AssigneeRole = "signer_1",
+    IsRequired = true,
+});
+```
+
+**Go SDK**
+```go
+body := &models.CreateFieldBody{
+    Label:        to.Ptr("Client Signature"),
+    Type:         to.Ptr("digital_signature"),
+    PageNumber:   to.Ptr(int32(2)),
+    X:            to.Ptr(float64(0.1)),
+    Y:            to.Ptr(float64(0.85)),
+    Width:        to.Ptr(float64(0.35)),
+    Height:       to.Ptr(float64(0.06)),
+    AssigneeRole: to.Ptr("signer_1"),
+    IsRequired:   to.Ptr(true),
+}
+field, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Fields().Post(context.Background(), body, nil)
+```
+
+## Step 4: Create a submission
+
+**curl**
+```bash
+curl -X POST https://app.formalingo.com/api/v1/documents/DOC_ID/submissions \\
+  -H "Authorization: Bearer af_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "signers": [{
+      "role": "signer_1",
+      "name": "Jane Smith",
+      "email": "jane@client.com",
+      "prefill": {
+        "COMPANY_FIELD_ID": "Client Corp Ltd"
+      }
+    }]
+  }'
+# → { "data": { "signers": [{ "link": "https://www.formalingo.com/d/TOKEN", ... }] } }
+```
+
+**TypeScript SDK**
+```typescript
+const sub = await client.documents.byDocumentId("DOC_ID").submissions.post({
+  signers: [{
+    role: "signer_1",
+    name: "Jane Smith",
+    email: "jane@client.com",
+    prefill: { COMPANY_FIELD_ID: "Client Corp Ltd" },
+  }],
+})
+```
+
+**Python SDK**
+```python
+signer = CreateSubmissionSigner()
+signer.role = "signer_1"
+signer.name = "Jane Smith"
+signer.email = "jane@client.com"
+signer.prefill = {"COMPANY_FIELD_ID": "Client Corp Ltd"}
+
+body = CreateSubmissionBody()
+body.signers = [signer]
+
+sub = await client.api.v1.documents.by_document_id("DOC_ID").submissions.post(body)
+```
+
+**.NET SDK**
+```csharp
+var sub = await client.Api.V1.Documents["DOC_ID"].Submissions.PostAsync(new() {
+    Signers = new[] {
+        new CreateSubmissionSigner {
+            Role = "signer_1",
+            Name = "Jane Smith",
+            Email = "jane@client.com",
+            Prefill = new Dictionary<string, string> {
+                ["COMPANY_FIELD_ID"] = "Client Corp Ltd",
+            },
+        },
+    },
+});
+```
+
+**Go SDK**
+```go
+body := &models.CreateSubmissionBody{
+    Signers: []models.CreateSubmissionSigner{{
+        Role:  to.Ptr("signer_1"),
+        Name:  to.Ptr("Jane Smith"),
+        Email: to.Ptr("jane@client.com"),
+        Prefill: map[string]*string{
+            "COMPANY_FIELD_ID": to.Ptr("Client Corp Ltd"),
+        },
+    }},
+}
+sub, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Submissions().Post(context.Background(), body, nil)
+```
+
+## Step 5: Share the signing link
+
+Send `signers[0].link` to your signer. They open it in their browser, review the document, and sign.
+
+## Step 6: Completion
+
+When all signers complete signing:
+
+- Submission `status` → `completed`
+- `completedPdfUrl` is populated with the final signed PDF
+- A `document_all_complete` webhook event fires (if configured)
+
+You can poll `GET /api/v1/documents/DOC_ID/submissions` or listen to the webhook for completion.
+
+
+---
+
+# Archiving & Deleting Documents
+
+### `DELETE` `/api/v1/documents/{id}`
+
+ — Scopes: `delete:documents`
+
+## Soft delete (default)
+
+Moves the document to Trash. Original file is removed from storage. Existing signing links stop working.
+
+**curl**
+```bash
+curl -X DELETE https://app.formalingo.com/api/v1/documents/DOC_ID \\
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+**TypeScript SDK**
+```typescript
+import { createClient } from "@formalingo/sdk"
+
+const client = createClient("af_live_YOUR_KEY")
+
+// See SDK setup guide for client initialization
+await client.documents.byDocumentId("DOC_ID").delete()
+```
+
+**Python SDK**
+```python
+await client.api.v1.documents.by_document_id("DOC_ID").delete()
+```
+
+**.NET SDK**
+```csharp
+using Formalingo.Sdk;
+
+var client = FormalingoClientFactory.CreateClient("af_live_YOUR_KEY");
+
+await client.Api.V1.Documents["DOC_ID"].DeleteAsync();
+```
+
+**Go SDK**
+```go
+client, _ := formalingo.NewClient("af_live_YOUR_KEY")
+
+err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Delete(context.Background(), nil)
+```
+
+## Permanent delete
+
+Permanently deletes the document and all associated data (fields, submissions, audit events):
+
+**curl**
+```bash
+curl -X DELETE "https://app.formalingo.com/api/v1/documents/DOC_ID?permanent=true" \\
+  -H "Authorization: Bearer af_live_YOUR_KEY"
+```
+
+**TypeScript SDK**
+```typescript
+await client.documents.byDocumentId("DOC_ID").delete({
+  queryParameters: { permanent: true },
+})
+```
+
+**Python SDK**
+```python
+from kiota_abstractions.request_configuration import RequestConfiguration
+
+config = RequestConfiguration()
+config.query_parameters = {"permanent": True}
+
+await client.api.v1.documents.by_document_id("DOC_ID").delete(request_configuration=config)
+```
+
+**.NET SDK**
+```csharp
+await client.Api.V1.Documents["DOC_ID"].DeleteAsync(config => {
+    config.QueryParameters.Permanent = true;
+});
+```
+
+**Go SDK**
+```go
+config := &documents.DocumentItemRequestBuilderDeleteRequestConfiguration{
+    QueryParameters: &documents.DocumentItemRequestBuilderDeleteQueryParameters{
+        Permanent: to.Ptr(true),
+    },
+}
+err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Delete(context.Background(), config)
+```
+
+> **Warning:** Permanent deletion cannot be undone.
+
+The `delete:documents` scope is required for both operations.
+
+
+---
+
+# Webhooks
+
+Webhooks let your server receive real-time notifications when events occur — form submissions, document signings, invitations, and more.
+
+## How it works
+
+1. Create an **Integration Profile** in the dashboard (Settings → Integrations) pointing to your webhook URL
+2. Bind it to a specific form or document
+3. Select which events to receive
+
+When an event fires, Formalingo sends an HTTP POST to your endpoint with a JSON payload.
+
+## Event types
+
+| Event | Description |
+|---|---|
+| `form_submitted` | A recipient completed a form |
+| `form_opened` | A recipient opened their form link |
+| `form_expired` | A recipient's link expired |
+| `recipient_invite` | A new recipient was added |
+| `recipient_reminder` | A reminder was sent to a recipient |
+| `document_sent` | A document submission was created |
+| `document_signer_viewed` | A signer opened their signing link |
+| `document_signer_completed` | A signer completed all fields |
+| `document_all_complete` | All signers on a submission completed |
+| `signer_invite` | A new signer was added to a submission |
+| `signer_reminder` | A reminder was sent to a signer |
+
+## Webhook payload structure
+
+All events share a common envelope:
+
+```json
+{
+  "event": "form_submitted",
+  "timestamp": "2026-02-25T10:00:00.000Z",
+  "workspaceId": "workspace-uuid",
+  "data": { ... }
+}
+```
+
+See [Event Payloads](/docs/webhooks/events) for the `data` shape of each event.
+
+## Managing webhooks
+
+Webhooks are currently managed through the **Integrations** section of the dashboard. Programmatic management of integration profiles is not available via API key — use the dashboard to configure your webhook endpoints.
+
+
+---
+
+# Event Payloads
+
+## form_submitted
+
+```json
+{
+  "event": "form_submitted",
+  "timestamp": "2026-02-25T10:00:00.000Z",
+  "workspaceId": "workspace-uuid",
+  "data": {
+    "form": { "id": "form-uuid", "title": "Customer Feedback" },
+    "recipient": {
+      "id": "recipient-uuid",
+      "label": "John Doe",
+      "email": "john@example.com"
+    }
+  }
+}
+```
+
+## document_all_complete
+
+```json
+{
+  "event": "document_all_complete",
+  "timestamp": "2026-02-25T10:00:00.000Z",
+  "workspaceId": "workspace-uuid",
+  "data": {
+    "document": { "id": "doc-uuid", "title": "Service Agreement" },
+    "submission": {
+      "id": "submission-uuid",
+      "completedPdfUrl": "https://storage.url/signed.pdf"
+    }
+  }
+}
+```
+
+## signer_invite
+
+```json
+{
+  "event": "signer_invite",
+  "timestamp": "2026-02-25T10:00:00.000Z",
+  "workspaceId": "workspace-uuid",
+  "data": {
+    "document": { "id": "doc-uuid", "title": "Service Agreement" },
+    "signer": {
+      "id": "signer-uuid",
+      "name": "Jane Smith",
+      "email": "jane@client.com",
+      "role": "signer_1"
+    },
+    "link": "https://www.formalingo.com/d/TOKEN"
+  }
+}
+```
+
+## document_signer_completed
+
+```json
+{
+  "event": "document_signer_completed",
+  "timestamp": "2026-02-25T10:00:00.000Z",
+  "workspaceId": "workspace-uuid",
+  "data": {
+    "document": { "id": "doc-uuid", "title": "Service Agreement" },
+    "signer": {
+      "id": "signer-uuid",
+      "name": "Jane Smith",
+      "role": "signer_1"
+    }
+  }
+}
+```
+
+
+---
+
+# Managing Webhooks
+
+## Dashboard setup
+
+Webhooks are configured in the **Integrations** section of the Formalingo dashboard:
+
+1. Go to **Settings → Integrations**
+2. Click **Add Integration**
+3. Choose **Webhook**
+4. Enter your endpoint URL
+5. Select the events you want to receive
+6. Bind the integration to specific forms or documents (or globally)
+
+## Testing your endpoint
+
+Your endpoint must return a `2xx` HTTP status code to acknowledge receipt. Formalingo logs delivery results for debugging.
+
+## Verifying webhook authenticity
+
+Currently, webhook payloads don't include a signature header. We recommend:
+
+- Using a secret URL path or query parameter token (e.g. `/webhooks/formalingo?token=YOUR_SECRET`)
+- Validating the `workspaceId` in the payload matches your expected workspace
+
+A signature scheme (`X-Formalingo-Signature`) is planned for a future release.
+
+## Retry policy
+
+If your endpoint returns a non-2xx response or times out, Formalingo logs the delivery failure. Manual retries can be triggered from the dashboard.
+
+## Delivery logs
+
+View delivery history at **Settings → Integrations → [Integration] → Deliveries** in the dashboard.
+
+
+---
+
+# API Reference
+
+The full OpenAPI 3.1 specification is available at:
+
+```
+GET /api/v1/openapi.json
+```
+
+You can import this into:
+
+- **Postman** — Import → URL → paste `https://app.formalingo.com/api/v1/openapi.json`
+- **Insomnia** — Import → From URL
+- **Swagger UI** — Paste the URL into [editor.swagger.io](https://editor.swagger.io)
+- **Speakeasy / Stainless** — For SDK generation
+
+## Auto-generated reference
+
+The API reference pages in this docs site are auto-generated from the OpenAPI spec. Run the generation script to update them:
+
+```bash
+npm run docs:generate
+```
+
+This updates all pages in `/content/docs/api-reference/` without touching handwritten guide pages.
+
+## Quick reference
+
+### Authentication
+
+```
+Authorization: Bearer af_live_YOUR_KEY
+```
+
+### Base URL
+
+```
+https://app.formalingo.com/api/v1
+```
+
+### Forms
+
+| Method | Path | Scope |
+|---|---|---|
+| GET | /api/v1/forms | read:forms |
+| POST | /api/v1/forms | write:forms |
+| GET | `/api/v1/forms/{id}` | read:forms |
+| PUT | `/api/v1/forms/{id}` | write:forms |
+| DELETE | `/api/v1/forms/{id}` | delete:forms |
+| GET | `/api/v1/forms/{id}/sections` | read:forms |
+| POST | `/api/v1/forms/{id}/sections` | write:forms |
+| GET | `/api/v1/forms/{id}/questions` | read:forms |
+| POST | `/api/v1/forms/{id}/questions` | write:forms |
+| GET | `/api/v1/forms/{id}/recipients` | read:recipients |
+| POST | `/api/v1/forms/{id}/recipients` | write:recipients |
+| DELETE | `/api/v1/forms/{id}/recipients/{rid}` | delete:recipients |
+
+### Documents
+
+| Method | Path | Scope |
+|---|---|---|
+| GET | /api/v1/documents | read:documents |
+| POST | /api/v1/documents | write:documents |
+| GET | `/api/v1/documents/{id}` | read:documents |
+| PUT | `/api/v1/documents/{id}` | write:documents |
+| DELETE | `/api/v1/documents/{id}` | delete:documents |
+| GET | `/api/v1/documents/{id}/fields` | read:documents |
+| POST | `/api/v1/documents/{id}/fields` | write:documents |
+| GET | `/api/v1/documents/{id}/signer-roles` | read:documents |
+| POST | `/api/v1/documents/{id}/signer-roles` | write:documents |
+| GET | `/api/v1/documents/{id}/submissions` | read:submissions |
+| POST | `/api/v1/documents/{id}/submissions` | write:submissions |
+
+
+---
+
+# API Reference
+
+The full OpenAPI 3.1 specification is available at:
+
+```
+GET /api/v1/openapi.json
+```
+
+You can import this into:
+
+- **Postman** — Import → URL → paste `https://app.formalingo.com/api/v1/openapi.json`
+- **Insomnia** — Import → From URL
+- **Swagger UI** — Paste the URL into [editor.swagger.io](https://editor.swagger.io)
+- **Speakeasy / Stainless** — For SDK generation
+
+## Auto-generated reference
+
+The API reference pages in this docs site are auto-generated from the OpenAPI spec. Run the generation script to update them:
+
+```bash
+npm run docs:generate
+```
+
+This updates all pages in `/content/docs/api-reference/` without touching handwritten guide pages.
+
+## Quick reference
+
+### Authentication
+
+```
+Authorization: Bearer af_live_YOUR_KEY
+```
+
+### Base URL
+
+```
+https://app.formalingo.com/api/v1
+```
+
+### Forms
+
+| Method | Path | Scope |
+|---|---|---|
+| GET | /api/v1/forms | read:forms |
+| POST | /api/v1/forms | write:forms |
+| GET | `/api/v1/forms/{id}` | read:forms |
+| PUT | `/api/v1/forms/{id}` | write:forms |
+| DELETE | `/api/v1/forms/{id}` | delete:forms |
+| GET | `/api/v1/forms/{id}/sections` | read:forms |
+| POST | `/api/v1/forms/{id}/sections` | write:forms |
+| GET | `/api/v1/forms/{id}/questions` | read:forms |
+| POST | `/api/v1/forms/{id}/questions` | write:forms |
+| GET | `/api/v1/forms/{id}/recipients` | read:recipients |
+| POST | `/api/v1/forms/{id}/recipients` | write:recipients |
+| DELETE | `/api/v1/forms/{id}/recipients/{rid}` | delete:recipients |
+
+### Documents
+
+| Method | Path | Scope |
+|---|---|---|
+| GET | /api/v1/documents | read:documents |
+| POST | /api/v1/documents | write:documents |
+| GET | `/api/v1/documents/{id}` | read:documents |
+| PUT | `/api/v1/documents/{id}` | write:documents |
+| DELETE | `/api/v1/documents/{id}` | delete:documents |
+| GET | `/api/v1/documents/{id}/fields` | read:documents |
+| POST | `/api/v1/documents/{id}/fields` | write:documents |
+| GET | `/api/v1/documents/{id}/signer-roles` | read:documents |
+| POST | `/api/v1/documents/{id}/signer-roles` | write:documents |
+| GET | `/api/v1/documents/{id}/submissions` | read:submissions |
+| POST | `/api/v1/documents/{id}/submissions` | write:submissions |
+
+
+---
+
+# Forms
+
+Manage forms — create, update, publish, and delete forms in your workspace.
+
+## Endpoints
+
+### `GET` `/api/v1/forms`
+
+List forms — Returns all forms in the workspace, sorted by most recently updated. — Scopes: `read:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.get()
+```
+
+**Python SDK**
+```python
+client.forms.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/forms`
+
+Create a form — Creates a new form in draft status. — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.post(body)
+```
+
+**Python SDK**
+```python
+client.forms.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().Post(ctx, body, nil)
+```
+
+### `GET` `/api/v1/forms/{id}`
+
+Get a form — Returns the form with all sections and questions. — Scopes: `read:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").get()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Get(ctx, nil)
+```
+
+### `PUT` `/api/v1/forms/{id}`
+
+Update a form — Update title, description, or status. — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").put(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/forms/{id}`
+
+Delete a form — Soft-deletes by default. Add ?permanent=true to permanently delete. — Scopes: `delete:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").delete()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Form Sections
+
+Group questions into sections within a form.
+
+## Endpoints
+
+### `GET` `/api/v1/forms/{id}/sections`
+
+List sections — Scopes: `read:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").sections.get()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").sections.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Sections.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Sections().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/forms/{id}/sections`
+
+Create section — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").sections.post(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").sections.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Sections.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Sections().Post(ctx, body, nil)
+```
+
+### `PUT` `/api/v1/forms/{id}/sections/{sid}`
+
+Update section — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").sections.bySid("SID").put(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").sections.by_sid("SID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Sections["SID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Sections().BySid("SID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/forms/{id}/sections/{sid}`
+
+Delete section — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").sections.bySid("SID").delete()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").sections.by_sid("SID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Sections["SID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Sections().BySid("SID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Form Questions
+
+Add and manage questions within a form.
+
+## Endpoints
+
+### `GET` `/api/v1/forms/{id}/questions`
+
+List questions — Scopes: `read:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").questions.get()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").questions.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Questions.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Questions().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/forms/{id}/questions`
+
+Create question — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").questions.post(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").questions.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Questions.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Questions().Post(ctx, body, nil)
+```
+
+### `PUT` `/api/v1/forms/{id}/questions/{qid}`
+
+Update question — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").questions.byQid("QID").put(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").questions.by_qid("QID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Questions["QID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Questions().ByQid("QID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/forms/{id}/questions/{qid}`
+
+Delete question — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").questions.byQid("QID").delete()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").questions.by_qid("QID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Questions["QID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Questions().ByQid("QID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Recipients
+
+Create and manage form recipients with optional pre-filled answers.
+
+## Endpoints
+
+### `GET` `/api/v1/forms/{id}/recipients`
+
+List recipients — Scopes: `read:recipients`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").recipients.get()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").recipients.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Recipients.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Recipients().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/forms/{id}/recipients`
+
+Create recipient — Creates a recipient with an optional prefill map. — Scopes: `write:recipients`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").recipients.post(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").recipients.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Recipients.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Recipients().Post(ctx, body, nil)
+```
+
+### `PUT` `/api/v1/forms/{id}/recipients/{rid}`
+
+Update recipient — Scopes: `write:recipients`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").recipients.byRid("RID").put(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").recipients.by_rid("RID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Recipients["RID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Recipients().ByRid("RID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/forms/{id}/recipients/{rid}`
+
+Delete recipient — Scopes: `delete:recipients`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").recipients.byRid("RID").delete()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").recipients.by_rid("RID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Recipients["RID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Recipients().ByRid("RID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Form Branding
+
+Customize the visual appearance of a form.
+
+## Endpoints
+
+### `PUT` `/api/v1/forms/{id}/branding`
+
+Update branding — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").branding.put(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").branding.put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Branding.PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Branding().Put(ctx, body, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Form Settings
+
+Configure form behavior, language, and visibility.
+
+## Endpoints
+
+### `PUT` `/api/v1/forms/{id}/settings`
+
+Update settings — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").settings.put(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").settings.put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Settings.PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Settings().Put(ctx, body, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Conditional Logic
+
+Define conditional show/hide rules for questions and sections.
+
+## Endpoints
+
+### `GET` `/api/v1/forms/{id}/rules`
+
+List rules — Scopes: `read:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").rules.get()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").rules.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Rules.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Rules().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/forms/{id}/rules`
+
+Create rule — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").rules.post(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").rules.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Rules.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Rules().Post(ctx, body, nil)
+```
+
+### `PUT` `/api/v1/forms/{id}/rules/{rid}`
+
+Update rule — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").rules.byRid("RID").put(body)
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").rules.by_rid("RID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Rules["RID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Rules().ByRid("RID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/forms/{id}/rules/{rid}`
+
+Delete rule — Scopes: `write:forms`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").rules.byRid("RID").delete()
+```
+
+**Python SDK**
+```python
+client.forms.by_id("ID").rules.by_rid("RID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms["ID"].Rules["RID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById("ID").Rules().ByRid("RID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Documents
+
+Upload and manage PDF/DOCX documents for digital signing.
+
+## Endpoints
+
+### `GET` `/api/v1/documents`
+
+List documents — Scopes: `read:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.get()
+```
+
+**Python SDK**
+```python
+client.documents.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/documents`
+
+Upload document — Upload a PDF or DOCX via multipart/form-data. Max 50 MB. — Scopes: `write:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.post(body)
+```
+
+**Python SDK**
+```python
+client.documents.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().Post(ctx, body, nil)
+```
+
+### `GET` `/api/v1/documents/{id}`
+
+Get document — Scopes: `read:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").get()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Get(ctx, nil)
+```
+
+### `PUT` `/api/v1/documents/{id}`
+
+Update document — Scopes: `write:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").put(body)
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/documents/{id}`
+
+Delete document — Scopes: `delete:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").delete()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Document Fields
+
+Place and manage signature and data fields on document pages.
+
+## Endpoints
+
+### `GET` `/api/v1/documents/{id}/fields`
+
+List fields — Scopes: `read:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").fields.get()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").fields.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Fields.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Fields().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/documents/{id}/fields`
+
+Create field — Scopes: `write:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").fields.post(body)
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").fields.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Fields.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Fields().Post(ctx, body, nil)
+```
+
+### `PUT` `/api/v1/documents/{id}/fields/{fid}`
+
+Update field — Scopes: `write:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").fields.byFid("FID").put(body)
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").fields.by_fid("FID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Fields["FID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Fields().ByFid("FID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/documents/{id}/fields/{fid}`
+
+Delete field — Scopes: `write:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").fields.byFid("FID").delete()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").fields.by_fid("FID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Fields["FID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Fields().ByFid("FID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Signer Roles
+
+Define signer role templates for a document.
+
+## Endpoints
+
+### `GET` `/api/v1/documents/{id}/signer-roles`
+
+List signer roles — Scopes: `read:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").signerRoles.get()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").signer_roles.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].SignerRoles.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").SignerRoles().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/documents/{id}/signer-roles`
+
+Create signer role — Scopes: `write:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").signerRoles.post(body)
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").signer_roles.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].SignerRoles.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").SignerRoles().Post(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/documents/{id}/signer-roles/{rid}`
+
+Delete signer role — Scopes: `write:documents`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").signerRoles.byRid("RID").delete()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").signer_roles.by_rid("RID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].SignerRoles["RID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").SignerRoles().ByRid("RID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
+
+# Submissions
+
+Create signing submissions and manage signers with pre-fill support.
+
+## Endpoints
+
+### `GET` `/api/v1/documents/{id}/submissions`
+
+List submissions — Scopes: `read:submissions`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").submissions.get()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").submissions.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Submissions.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Submissions().Get(ctx, nil)
+```
+
+### `POST` `/api/v1/documents/{id}/submissions`
+
+Create submission — Creates a signing submission with optional pre-fill data. — Scopes: `write:submissions`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").submissions.post(body)
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").submissions.post(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Submissions.PostAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Submissions().Post(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/documents/{id}/submissions/{sid}`
+
+Delete submission — Scopes: `write:submissions`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").submissions.bySid("SID").delete()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").submissions.by_sid("SID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Submissions["SID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Submissions().BySid("SID").Delete(ctx, nil)
+```
+
+### `GET` `/api/v1/documents/{id}/submissions/{sid}/signers`
+
+List signers — Scopes: `read:submissions`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").submissions.bySid("SID").signers.get()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").submissions.by_sid("SID").signers.get()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Submissions["SID"].Signers.GetAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Submissions().BySid("SID").Signers().Get(ctx, nil)
+```
+
+### `PUT` `/api/v1/documents/{id}/submissions/{sid}/signers/{signerId}`
+
+Update signer — Scopes: `write:submissions`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").submissions.bySid("SID").signers.bySignerId("SIGNERID").put(body)
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").submissions.by_sid("SID").signers.by_signer_id("SIGNERID").put(body)
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Submissions["SID"].Signers["SIGNERID"].PutAsync(body)
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Submissions().BySid("SID").Signers().BySignerId("SIGNERID").Put(ctx, body, nil)
+```
+
+### `DELETE` `/api/v1/documents/{id}/submissions/{sid}/signers/{signerId}`
+
+Delete signer — Scopes: `write:submissions`
+
+**TypeScript SDK**
+```typescript
+client.documents.byId("ID").submissions.bySid("SID").signers.bySignerId("SIGNERID").delete()
+```
+
+**Python SDK**
+```python
+client.documents.by_id("ID").submissions.by_sid("SID").signers.by_signer_id("SIGNERID").delete()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Documents["ID"].Submissions["SID"].Signers["SIGNERID"].DeleteAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Documents().ById("ID").Submissions().BySid("SID").Signers().BySignerId("SIGNERID").Delete(ctx, nil)
+```
+
+---
+
+*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+
+
+---
