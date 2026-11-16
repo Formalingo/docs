@@ -2,6 +2,8 @@
 
 The Formalingo REST API lets you create and manage forms, digital signature documents, recipients, and submissions — all programmatically from your own application.
 
+AI clients can also use Formalingo through [Hosted MCP](/docs/mcp). MCP exposes curated tools for forms and document signing while using the same API keys, OAuth tokens, scopes, and rate limits as `/api/v1`.
+
 ## Base URL
 
 All API requests are made to:
@@ -98,6 +100,7 @@ form, err := client.Api().V1().Forms().Post(context.Background(), body, nil)
 | [Documents](/docs/documents) | Upload PDFs/DOCX and place signature fields |
 | [Submissions](/docs/documents/submissions) | Create signing submissions with pre-filled data |
 | [Webhooks](/docs/webhooks) | Receive real-time events when forms are submitted or documents are signed |
+| [Hosted MCP](/docs/mcp) | Connect AI clients to Formalingo tools with API-key or OAuth bearer auth |
 
 ## Response format
 

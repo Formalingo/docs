@@ -6,7 +6,7 @@ Define conditional show/hide rules for questions and sections.
 
 ### `GET` `/api/v1/forms/{id}/rules`
 
-List rules — Scopes: `read:forms`
+ — Scopes: `forms:read`
 
 **TypeScript SDK**
 ```typescript
@@ -15,70 +15,70 @@ client.forms.byId("ID").rules.get()
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").rules.get()
+await client.api.v1.forms.by_id(UUID("ID")).rules.get()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Rules.GetAsync()
+client.Api.V1.Forms[Guid.Parse("ID")].Rules.GetAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Rules().Get(ctx, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Rules().Get(ctx, nil)
 ```
 
 ### `POST` `/api/v1/forms/{id}/rules`
 
-Create rule — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.byId("ID").rules.post(body)
+client.forms.byId("ID").rules.post({})
 ```
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").rules.post(body)
+await client.api.v1.forms.by_id(UUID("ID")).rules.post()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Rules.PostAsync(body)
+client.Api.V1.Forms[Guid.Parse("ID")].Rules.PostAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Rules().Post(ctx, body, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Rules().Post(ctx, nil)
 ```
 
 ### `PUT` `/api/v1/forms/{id}/rules/{rid}`
 
-Update rule — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.byId("ID").rules.byRid("RID").put(body)
+client.forms.byId("ID").rules.byRid("RID").put({})
 ```
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").rules.by_rid("RID").put(body)
+await client.api.v1.forms.by_id(UUID("ID")).rules.by_rid(UUID("RID")).put()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Rules["RID"].PutAsync(body)
+client.Api.V1.Forms[Guid.Parse("ID")].Rules[Guid.Parse("RID")].PutAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Rules().ByRid("RID").Put(ctx, body, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Rules().ByRid(uuid.MustParse("RID")).Put(ctx, nil)
 ```
 
 ### `DELETE` `/api/v1/forms/{id}/rules/{rid}`
 
-Delete rule — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
@@ -87,19 +87,19 @@ client.forms.byId("ID").rules.byRid("RID").delete()
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").rules.by_rid("RID").delete()
+await client.api.v1.forms.by_id(UUID("ID")).rules.by_rid(UUID("RID")).delete()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Rules["RID"].DeleteAsync()
+client.Api.V1.Forms[Guid.Parse("ID")].Rules[Guid.Parse("RID")].DeleteAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Rules().ByRid("RID").Delete(ctx, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Rules().ByRid(uuid.MustParse("RID")).Delete(ctx, nil)
 ```
 
 ---
 
-*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+*This page is auto-generated from the shared API endpoint catalog. Run `yarn docs:generate` to update.*

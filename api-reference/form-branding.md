@@ -6,28 +6,28 @@ Customize the visual appearance of a form.
 
 ### `PUT` `/api/v1/forms/{id}/branding`
 
-Update branding — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.byId("ID").branding.put(body)
+client.forms.byId("ID").branding.put({})
 ```
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").branding.put(body)
+await client.api.v1.forms.by_id(UUID("ID")).branding.put()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Branding.PutAsync(body)
+client.Api.V1.Forms[Guid.Parse("ID")].Branding.PutAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Branding().Put(ctx, body, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Branding().Put(ctx, nil)
 ```
 
 ---
 
-*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+*This page is auto-generated from the shared API endpoint catalog. Run `yarn docs:generate` to update.*

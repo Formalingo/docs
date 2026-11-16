@@ -28,11 +28,30 @@ Delete a recipient — Scopes: `delete:recipients`
 | `phone` | `string` | No | Phone number (for SMS notifications if configured) |
 | `password` | `string` | No | Password-protect the form link (min 4 chars) |
 | `expires_at` | `datetime` | No | ISO 8601 expiry — link becomes inactive after this time |
-| `prefill` | `object` | No | Map of questionId → value. Saves responses immediately. |
+| `prefill` | `object` | No | Map of question ID or exact question text → value. Saves responses immediately. |
+
+## Phone normalization
+
+- International input may include spaces, parentheses, and hyphens, but must include `+`.
+- National input uses the workspace default phone country.
+- Successful phone writes store and return E.164, for example `+12025550100`.
+- Invalid phone input returns `details.field`, `details.code`, and an optional import row or signer index.
+- Existing legacy phone values are not bulk rewritten. Reads and unrelated edits that
+  omit `phone` can continue to return the stored legacy value until that phone field is
+  successfully rewritten.
+- Delivery resolves legacy stored values transiently when possible; it does not silently
+  mutate the recipient record.
+
+The API accepts formatted phone input for recipient creates and phone edits. After a
+successful phone write, recipient responses expose the stored canonical E.164 value (or
+`null`). A response for an untouched legacy row may still expose its pre-existing stored
+format.
 
 ## Pre-filling answers
 
-The `prefill` field accepts a map of question IDs to values. The API saves these as `Response` records immediately — the recipient will see the answers pre-populated when they open the link.
+The `prefill` field accepts a map of question IDs or exact question text to values. The API saves these as `Response` records immediately — the recipient will see the answers pre-populated when they open the link.
+
+If multiple questions have the same exact text, a text-key prefill applies to all matching questions. If two keys resolve to the same question, the request is rejected.
 
 **curl**
 ```bash
@@ -45,8 +64,8 @@ curl -X POST https://app.formalingo.com/api/v1/forms/FORM_ID/recipients \\
     "expires_at": "2026-03-31T23:59:59Z",
     "prefill": {
       "question-uuid-1": "John Doe",
-      "question-uuid-2": "Acme Corp",
-      "question-uuid-3": "john@acme.com"
+      "Company": "Acme Corp",
+      "Email": "john@acme.com"
     }
   }'
 ```
@@ -63,7 +82,7 @@ const recipient = await client.forms.byFormId("FORM_ID").recipients.post({
   expiresAt: "2026-03-31T23:59:59Z",
   prefill: {
     "question-uuid-1": "John Doe",
-    "question-uuid-2": "Acme Corp",
+    "Company": "Acme Corp",
   },
 })
 console.log(recipient.link)
@@ -78,7 +97,7 @@ body.label = "John Doe"
 body.email = "john@acme.com"
 body.prefill = {
     "question-uuid-1": "John Doe",
-    "question-uuid-2": "Acme Corp",
+    "Company": "Acme Corp",
 }
 
 recipient = await client.api.v1.forms.by_form_id("FORM_ID").recipients.post(body)
@@ -97,7 +116,7 @@ var recipient = await client.Api.V1.Forms["FORM_ID"].Recipients.PostAsync(new() 
     ExpiresAt = "2026-03-31T23:59:59Z",
     Prefill = new() {
         ["question-uuid-1"] = "John Doe",
-        ["question-uuid-2"] = "Acme Corp",
+        ["Company"] = "Acme Corp",
     },
 });
 ```
@@ -112,7 +131,7 @@ body := &models.CreateRecipientBody{
     ExpiresAt: to.Ptr("2026-03-31T23:59:59Z"),
     Prefill: map[string]string{
         "question-uuid-1": "John Doe",
-        "question-uuid-2": "Acme Corp",
+        "Company": "Acme Corp",
     },
 }
 recipient, err := client.Api().V1().Forms().ByFormId("FORM_ID").Recipients().Post(context.Background(), body, nil)

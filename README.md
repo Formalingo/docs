@@ -20,7 +20,7 @@ Official documentation for the [Formalingo](https://formalingo.com) API — an A
 | SDK | Package | Install |
 |-----|---------|---------|
 | TypeScript | [`@formalingo/sdk`](https://www.npmjs.com/package/@formalingo/sdk) | `npm install @formalingo/sdk` |
-| Python | [`formalingo-sdk`](https://github.com/Formalingo/sdk-python) | `pip install formalingo-sdk` |
+| Python | [`formalingo-sdk`](https://github.com/Formalingo/sdk-python) | `pip install git+https://github.com/Formalingo/sdk-python.git` |
 | .NET | [`Formalingo.Sdk`](https://www.nuget.org/packages/Formalingo.Sdk) | `dotnet add package Formalingo.Sdk` |
 | Go | [`sdk-go`](https://github.com/Formalingo/sdk-go) | `go get github.com/Formalingo/sdk-go` |
 

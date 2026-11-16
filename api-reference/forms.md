@@ -6,7 +6,7 @@ Manage forms — create, update, publish, and delete forms in your workspace.
 
 ### `GET` `/api/v1/forms`
 
-List forms — Returns all forms in the workspace, sorted by most recently updated. — Scopes: `read:forms`
+ — Scopes: `forms:read`
 
 **TypeScript SDK**
 ```typescript
@@ -15,7 +15,7 @@ client.forms.get()
 
 **Python SDK**
 ```python
-client.forms.get()
+await client.api.v1.forms.get()
 ```
 
 **.NET SDK**
@@ -30,16 +30,16 @@ client.Api().V1().Forms().Get(ctx, nil)
 
 ### `POST` `/api/v1/forms`
 
-Create a form — Creates a new form in draft status. — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.post(body)
+client.forms.post(body, {})
 ```
 
 **Python SDK**
 ```python
-client.forms.post(body)
+await client.api.v1.forms.post(body)
 ```
 
 **.NET SDK**
@@ -54,7 +54,7 @@ client.Api().V1().Forms().Post(ctx, body, nil)
 
 ### `GET` `/api/v1/forms/{id}`
 
-Get a form — Returns the form with all sections and questions. — Scopes: `read:forms`
+ — Scopes: `forms:read`
 
 **TypeScript SDK**
 ```typescript
@@ -63,46 +63,46 @@ client.forms.byId("ID").get()
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").get()
+await client.api.v1.forms.by_id(UUID("ID")).get()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].GetAsync()
+client.Api.V1.Forms[Guid.Parse("ID")].GetAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Get(ctx, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Get(ctx, nil)
 ```
 
 ### `PUT` `/api/v1/forms/{id}`
 
-Update a form — Update title, description, or status. — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.byId("ID").put(body)
+client.forms.byId("ID").put(body, {})
 ```
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").put(body)
+await client.api.v1.forms.by_id(UUID("ID")).put(body)
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].PutAsync(body)
+client.Api.V1.Forms[Guid.Parse("ID")].PutAsync(body)
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Put(ctx, body, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Put(ctx, body, nil)
 ```
 
 ### `DELETE` `/api/v1/forms/{id}`
 
-Delete a form — Soft-deletes by default. Add ?permanent=true to permanently delete. — Scopes: `delete:forms`
+ — Scopes: `forms:delete`
 
 **TypeScript SDK**
 ```typescript
@@ -111,19 +111,43 @@ client.forms.byId("ID").delete()
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").delete()
+await client.api.v1.forms.by_id(UUID("ID")).delete()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].DeleteAsync()
+client.Api.V1.Forms[Guid.Parse("ID")].DeleteAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Delete(ctx, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Delete(ctx, nil)
+```
+
+### `POST` `/api/v1/forms/{id}/publish`
+
+ — Scopes: `forms:write`, `forms:publish`
+
+**TypeScript SDK**
+```typescript
+client.forms.byId("ID").publish.post({})
+```
+
+**Python SDK**
+```python
+await client.api.v1.forms.by_id(UUID("ID")).publish.post()
+```
+
+**.NET SDK**
+```csharp
+client.Api.V1.Forms[Guid.Parse("ID")].Publish.PostAsync()
+```
+
+**Go SDK**
+```go
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Publish().Post(ctx, nil)
 ```
 
 ---
 
-*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+*This page is auto-generated from the shared API endpoint catalog. Run `yarn docs:generate` to update.*

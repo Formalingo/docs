@@ -1,12 +1,12 @@
 # Document Fields
 
-Place and manage signature and data fields on document pages.
+Place signature/data fields and manage supporting upload requests that stay outside the signed document.
 
 ## Endpoints
 
 ### `GET` `/api/v1/documents/{id}/fields`
 
-List fields — Scopes: `read:documents`
+ — Scopes: `documents:read`
 
 **TypeScript SDK**
 ```typescript
@@ -15,70 +15,70 @@ client.documents.byId("ID").fields.get()
 
 **Python SDK**
 ```python
-client.documents.by_id("ID").fields.get()
+await client.api.v1.documents.by_id(UUID("ID")).fields.get()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Documents["ID"].Fields.GetAsync()
+client.Api.V1.Documents[Guid.Parse("ID")].Fields.GetAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Documents().ById("ID").Fields().Get(ctx, nil)
+client.Api().V1().Documents().ById(uuid.MustParse("ID")).Fields().Get(ctx, nil)
 ```
 
 ### `POST` `/api/v1/documents/{id}/fields`
 
-Create field — Scopes: `write:documents`
+ — Scopes: `documents:write`
 
 **TypeScript SDK**
 ```typescript
-client.documents.byId("ID").fields.post(body)
+client.documents.byId("ID").fields.post(body, {})
 ```
 
 **Python SDK**
 ```python
-client.documents.by_id("ID").fields.post(body)
+await client.api.v1.documents.by_id(UUID("ID")).fields.post(body)
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Documents["ID"].Fields.PostAsync(body)
+client.Api.V1.Documents[Guid.Parse("ID")].Fields.PostAsync(body)
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Documents().ById("ID").Fields().Post(ctx, body, nil)
+client.Api().V1().Documents().ById(uuid.MustParse("ID")).Fields().Post(ctx, body, nil)
 ```
 
 ### `PUT` `/api/v1/documents/{id}/fields/{fid}`
 
-Update field — Scopes: `write:documents`
+ — Scopes: `documents:write`
 
 **TypeScript SDK**
 ```typescript
-client.documents.byId("ID").fields.byFid("FID").put(body)
+client.documents.byId("ID").fields.byFid("FID").put(body, {})
 ```
 
 **Python SDK**
 ```python
-client.documents.by_id("ID").fields.by_fid("FID").put(body)
+await client.api.v1.documents.by_id(UUID("ID")).fields.by_fid(UUID("FID")).put(body)
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Documents["ID"].Fields["FID"].PutAsync(body)
+client.Api.V1.Documents[Guid.Parse("ID")].Fields[Guid.Parse("FID")].PutAsync(body)
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Documents().ById("ID").Fields().ByFid("FID").Put(ctx, body, nil)
+client.Api().V1().Documents().ById(uuid.MustParse("ID")).Fields().ByFid(uuid.MustParse("FID")).Put(ctx, body, nil)
 ```
 
 ### `DELETE` `/api/v1/documents/{id}/fields/{fid}`
 
-Delete field — Scopes: `write:documents`
+ — Scopes: `documents:write`
 
 **TypeScript SDK**
 ```typescript
@@ -87,19 +87,19 @@ client.documents.byId("ID").fields.byFid("FID").delete()
 
 **Python SDK**
 ```python
-client.documents.by_id("ID").fields.by_fid("FID").delete()
+await client.api.v1.documents.by_id(UUID("ID")).fields.by_fid(UUID("FID")).delete()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Documents["ID"].Fields["FID"].DeleteAsync()
+client.Api.V1.Documents[Guid.Parse("ID")].Fields[Guid.Parse("FID")].DeleteAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Documents().ById("ID").Fields().ByFid("FID").Delete(ctx, nil)
+client.Api().V1().Documents().ById(uuid.MustParse("ID")).Fields().ByFid(uuid.MustParse("FID")).Delete(ctx, nil)
 ```
 
 ---
 
-*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+*This page is auto-generated from the shared API endpoint catalog. Run `yarn docs:generate` to update.*

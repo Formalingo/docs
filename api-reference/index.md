@@ -39,33 +39,35 @@ https://app.formalingo.com/api/v1
 
 ### Forms
 
-| Method | Path | Scope |
+| Method | Path | Permissions |
 |---|---|---|
-| GET | /api/v1/forms | read:forms |
-| POST | /api/v1/forms | write:forms |
-| GET | `/api/v1/forms/{id}` | read:forms |
-| PUT | `/api/v1/forms/{id}` | write:forms |
-| DELETE | `/api/v1/forms/{id}` | delete:forms |
-| GET | `/api/v1/forms/{id}/sections` | read:forms |
-| POST | `/api/v1/forms/{id}/sections` | write:forms |
-| GET | `/api/v1/forms/{id}/questions` | read:forms |
-| POST | `/api/v1/forms/{id}/questions` | write:forms |
-| GET | `/api/v1/forms/{id}/recipients` | read:recipients |
-| POST | `/api/v1/forms/{id}/recipients` | write:recipients |
-| DELETE | `/api/v1/forms/{id}/recipients/{rid}` | delete:recipients |
+| GET | /api/v1/forms | forms:read |
+| POST | /api/v1/forms | forms:write |
+| GET | `/api/v1/forms/{id}` | forms:read |
+| PUT | `/api/v1/forms/{id}` | forms:write |
+| DELETE | `/api/v1/forms/{id}` | forms:delete |
+| POST | `/api/v1/forms/{id}/publish` | forms:write, forms:publish |
+| GET | `/api/v1/forms/{id}/sections` | forms:read |
+| POST | `/api/v1/forms/{id}/sections` | forms:write |
+| GET | `/api/v1/forms/{id}/questions` | forms:read |
+| POST | `/api/v1/forms/{id}/questions` | forms:write |
+| GET | `/api/v1/forms/{id}/recipients` | recipients:read |
+| POST | `/api/v1/forms/{id}/recipients` | recipients:write |
+| DELETE | `/api/v1/forms/{id}/recipients/{rid}` | recipients:write |
 
 ### Documents
 
-| Method | Path | Scope |
+| Method | Path | Permissions |
 |---|---|---|
-| GET | /api/v1/documents | read:documents |
-| POST | /api/v1/documents | write:documents |
-| GET | `/api/v1/documents/{id}` | read:documents |
-| PUT | `/api/v1/documents/{id}` | write:documents |
-| DELETE | `/api/v1/documents/{id}` | delete:documents |
-| GET | `/api/v1/documents/{id}/fields` | read:documents |
-| POST | `/api/v1/documents/{id}/fields` | write:documents |
-| GET | `/api/v1/documents/{id}/signer-roles` | read:documents |
-| POST | `/api/v1/documents/{id}/signer-roles` | write:documents |
-| GET | `/api/v1/documents/{id}/submissions` | read:submissions |
-| POST | `/api/v1/documents/{id}/submissions` | write:submissions |
+| GET | /api/v1/documents | documents:read |
+| POST | /api/v1/documents | documents:write |
+| GET | `/api/v1/documents/{id}` | documents:read |
+| PUT | `/api/v1/documents/{id}` | documents:write |
+| DELETE | `/api/v1/documents/{id}` | documents:delete |
+| POST | `/api/v1/documents/{id}/publish` | documents:write, documents:publish |
+| GET | `/api/v1/documents/{id}/fields` | documents:read |
+| POST | `/api/v1/documents/{id}/fields` | documents:write |
+| GET | `/api/v1/documents/{id}/signer-roles` | documents:read |
+| POST | `/api/v1/documents/{id}/signer-roles` | documents:write |
+| GET | `/api/v1/documents/{id}/submissions` | submissions:read |
+| POST | `/api/v1/documents/{id}/submissions` | submissions:write |

@@ -21,6 +21,8 @@ Use this to correct contact details or update expiry:
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 
+Phone validation errors use `details.field` and `details.code`; signer-array creates add the zero-based `details.index` and an indexed field path such as `signers[1].phone`. Existing signer rows are normalized only when used and are never bulk rewritten.
+
 **curl**
 ```bash
 curl -X PUT https://app.formalingo.com/api/v1/documents/DOC_ID/submissions/SUB_ID/signers/SIGNER_ID \\

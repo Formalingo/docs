@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "forms",
+    "revisions",
     "form-sections",
     "form-questions",
     "recipients",
@@ -10,8 +11,14 @@
     "form-settings",
     "form-rules",
     "documents",
+    "document-parse-jobs",
     "document-fields",
     "signer-roles",
-    "submissions"
+    "submissions",
+    "files",
+    "quota",
+    "analytics",
+    "deliveries",
+    "integrations"
   ]
 }

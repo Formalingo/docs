@@ -6,28 +6,28 @@ Configure form behavior, language, and visibility.
 
 ### `PUT` `/api/v1/forms/{id}/settings`
 
-Update settings — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.byId("ID").settings.put(body)
+client.forms.byId("ID").settings.put({})
 ```
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").settings.put(body)
+await client.api.v1.forms.by_id(UUID("ID")).settings.put()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Settings.PutAsync(body)
+client.Api.V1.Forms[Guid.Parse("ID")].Settings.PutAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Settings().Put(ctx, body, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Settings().Put(ctx, nil)
 ```
 
 ---
 
-*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+*This page is auto-generated from the shared API endpoint catalog. Run `yarn docs:generate` to update.*

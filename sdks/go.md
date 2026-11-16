@@ -106,7 +106,33 @@ body := &models.CreateRecipientBody{
 recipient, err := client.Api().V1().Forms().ByFormId("FORM_ID").Recipients().Post(ctx, body, nil)
 fmt.Println(recipient.GetLink())
 // → https://www.formalingo.com/f/TOKEN
+
+// Import sdkapi "github.com/Formalingo/sdk-go/client/api",
+// abstractions "github.com/microsoft/kiota-abstractions-go", and "github.com/google/uuid".
+// Bulk create with one caller-owned retry key for the exact request
+bulkRecipient := sdkapi.NewV1FormsItemRecipientsBulkPostRequestBody_recipients()
+label, email := "Alice", "alice@example.com"
+bulkRecipient.SetLabel(&label)
+bulkRecipient.SetEmail(&email)
+bulkBody := sdkapi.NewV1FormsItemRecipientsBulkPostRequestBody()
+confirmBulk := true
+bulkBody.SetConfirmBulk(&confirmBulk)
+bulkBody.SetRecipients(
+    []sdkapi.V1FormsItemRecipientsBulkPostRequestBody_recipientsable{
+        bulkRecipient,
+    },
+)
+headers := abstractions.NewRequestHeaders()
+headers.Add("Idempotency-Key", "recipient-bulk-create-7f3f")
+configuration := &abstractions.RequestConfiguration[abstractions.DefaultQueryParameters]{Headers: headers}
+response, err := client.Api().V1().Forms().ById(
+    uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+).Recipients().Bulk().Post(ctx, bulkBody, configuration)
+recipients := response.GetData()
 ```
+
+The idempotency key is required. Reuse it only when retrying the exact same serialized request body.
+On `idempotency_request_in_progress`, retry the exact body with the same key. A different body returns `idempotency_key_conflict`; recipient erasure returns `idempotency_replay_unavailable`.
 
 ## Branding
 
@@ -123,25 +149,101 @@ err := client.Api().V1().Forms().ByFormId("FORM_ID").Branding().Put(ctx, body, n
 ## Documents
 
 ```go
+import (
+    formalingo "github.com/Formalingo/sdk-go"
+    "github.com/Formalingo/sdk-go/client/models"
+    "github.com/google/uuid"
+    abstractions "github.com/microsoft/kiota-abstractions-go"
+)
+
 // List documents
 docs, err := client.Api().V1().Documents().Get(ctx, nil)
 
 // Create a submission with signers
-body := &models.CreateSubmissionBody{
-    Signers: []models.SignerInput{
-        {
-            Role:            to.Ptr("signer_1"),
-            Name:            to.Ptr("John Doe"),
-            Email:           to.Ptr("john@acme.com"),
-            Prefill:         map[string]string{"field-uuid-1": "John Doe"},
-            PrefillReadonly:  to.Ptr(true),
-        },
-    },
-}
-submission, err := client.Api().V1().Documents().ByDocumentId("DOC_ID").Submissions().Post(ctx, body, nil)
-fmt.Println(submission.GetSigners()[0].GetLink())
+prefill := models.NewSignerInput_prefill()
+prefill.SetAdditionalData(map[string]any{"field-uuid-1": "John Doe"})
+signer := models.NewSignerInput()
+role, name, email, readonly := "signer_1", "John Doe", "john@acme.com", true
+signer.SetRole(&role)
+signer.SetName(&name)
+signer.SetEmail(&email)
+signer.SetPrefill(prefill)
+signer.SetPrefillReadonly(&readonly)
+body := models.NewCreateSubmissionBody()
+body.SetSigners([]models.SignerInputable{signer})
+
+headers := abstractions.NewRequestHeaders()
+headers.Add("Idempotency-Key", "document-create-7f3f")
+configuration := &abstractions.RequestConfiguration[abstractions.DefaultQueryParameters]{Headers: headers}
+response, err := client.Api().V1().Documents().ById(
+    uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+).Submissions().Post(ctx, body, configuration)
+submission := response.GetData()
+fmt.Println(*submission.GetSigners()[0].GetLink())
 // → https://www.formalingo.com/d/TOKEN
 ```
+
+The required idempotency key makes retries safe. The generated request builder
+returns an API envelope; signing links are under `response.GetData().GetSigners()`.
+
+### Supporting attachments
+
+Create required signer upload requests through existing document field CRUD;
+they stay out of the rendered document and signed PDF. Supporting requests omit
+page coordinates and default to required. Set `isRequired` to false for an
+optional upload. Ordinary placed fields still require positioning. Use existing
+signer role keys from your document; the example edits between `signer_1` and
+`signer_2`.
+
+```go
+import (
+    "context"
+    "github.com/Formalingo/sdk-go/client/api"
+    "github.com/Formalingo/sdk-go/client/models"
+    "github.com/google/uuid"
+)
+
+ctx := context.Background()
+fields := client.Api().V1().Documents().ById(uuid.MustParse(documentID)).Fields()
+body := models.NewCreateFieldBody()
+label, role := "Proof of address", "signer_1"
+fieldType, supporting := models.FILE_UPLOAD_CREATEFIELDBODY_TYPE, true
+body.SetLabel(&label)
+body.SetAssigneeRole(&role)
+body.SetTypeEscaped(&fieldType)
+options := models.NewCreateFieldBody_options()
+options.SetSupportingAttachment(&supporting)
+body.SetOptions(options)
+created, err := fields.Post(ctx, body, nil)
+if err != nil { return err }
+fieldID := *created.GetData().GetId()
+
+// A label-only edit preserves requiredness.
+edit := api.NewV1DocumentsItemFieldsItemWithFPutRequestBody()
+updatedLabel := "Updated proof"
+edit.SetLabel(&updatedLabel)
+if _, err = fields.ByFid(fieldID).Put(ctx, edit, nil); err != nil { return err }
+optional, secondRole := false, "signer_2"
+edit = api.NewV1DocumentsItemFieldsItemWithFPutRequestBody()
+edit.SetIsRequired(&optional)
+edit.SetAssigneeRole(&secondRole)
+if _, err = fields.ByFid(fieldID).Put(ctx, edit, nil); err != nil { return err }
+definitions, err := fields.Get(ctx, nil)
+if err != nil { return err }
+_ = definitions
+_, err = fields.ByFid(fieldID).Delete(ctx, nil)
+if err != nil { return err }
+```
+
+Use a stable optional UUID `id` when retrying the same creation request. A
+request's supporting/ordinary kind cannot be converted after creation. Draft
+changes affect future published submissions; existing submissions keep their
+pinned requirements.
+
+API keys need `documents:write` to create/edit/delete requests and
+`documents:read` to read definitions. Actual uploaded-file values/downloads need
+separate `submissions:download_files` permission. Completion webhooks use the
+existing authenticated file descriptors; see [file retrieval](/docs/webhooks/events#supporting-files-in-completion-webhooks).
 
 ## Error Handling
 

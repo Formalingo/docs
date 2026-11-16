@@ -6,7 +6,7 @@ Group questions into sections within a form.
 
 ### `GET` `/api/v1/forms/{id}/sections`
 
-List sections — Scopes: `read:forms`
+ — Scopes: `forms:read`
 
 **TypeScript SDK**
 ```typescript
@@ -15,70 +15,70 @@ client.forms.byId("ID").sections.get()
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").sections.get()
+await client.api.v1.forms.by_id(UUID("ID")).sections.get()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Sections.GetAsync()
+client.Api.V1.Forms[Guid.Parse("ID")].Sections.GetAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Sections().Get(ctx, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Sections().Get(ctx, nil)
 ```
 
 ### `POST` `/api/v1/forms/{id}/sections`
 
-Create section — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.byId("ID").sections.post(body)
+client.forms.byId("ID").sections.post(body, {})
 ```
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").sections.post(body)
+await client.api.v1.forms.by_id(UUID("ID")).sections.post(body)
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Sections.PostAsync(body)
+client.Api.V1.Forms[Guid.Parse("ID")].Sections.PostAsync(body)
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Sections().Post(ctx, body, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Sections().Post(ctx, body, nil)
 ```
 
 ### `PUT` `/api/v1/forms/{id}/sections/{sid}`
 
-Update section — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
-client.forms.byId("ID").sections.bySid("SID").put(body)
+client.forms.byId("ID").sections.bySid("SID").put(body, {})
 ```
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").sections.by_sid("SID").put(body)
+await client.api.v1.forms.by_id(UUID("ID")).sections.by_sid(UUID("SID")).put(body)
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Sections["SID"].PutAsync(body)
+client.Api.V1.Forms[Guid.Parse("ID")].Sections[Guid.Parse("SID")].PutAsync(body)
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Sections().BySid("SID").Put(ctx, body, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Sections().BySid(uuid.MustParse("SID")).Put(ctx, body, nil)
 ```
 
 ### `DELETE` `/api/v1/forms/{id}/sections/{sid}`
 
-Delete section — Scopes: `write:forms`
+ — Scopes: `forms:write`
 
 **TypeScript SDK**
 ```typescript
@@ -87,19 +87,19 @@ client.forms.byId("ID").sections.bySid("SID").delete()
 
 **Python SDK**
 ```python
-client.forms.by_id("ID").sections.by_sid("SID").delete()
+await client.api.v1.forms.by_id(UUID("ID")).sections.by_sid(UUID("SID")).delete()
 ```
 
 **.NET SDK**
 ```csharp
-client.Api.V1.Forms["ID"].Sections["SID"].DeleteAsync()
+client.Api.V1.Forms[Guid.Parse("ID")].Sections[Guid.Parse("SID")].DeleteAsync()
 ```
 
 **Go SDK**
 ```go
-client.Api().V1().Forms().ById("ID").Sections().BySid("SID").Delete(ctx, nil)
+client.Api().V1().Forms().ById(uuid.MustParse("ID")).Sections().BySid(uuid.MustParse("SID")).Delete(ctx, nil)
 ```
 
 ---
 
-*This page is auto-generated from the OpenAPI spec. Run `npm run docs:generate` to update.*
+*This page is auto-generated from the shared API endpoint catalog. Run `yarn docs:generate` to update.*
